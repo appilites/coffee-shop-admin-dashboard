@@ -1,13 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { motion } from "framer-motion"
-import { Coffee, Eye, EyeOff, Lock, Mail, Loader2 } from "lucide-react"
+import { Coffee, Eye, EyeOff, Lock, Mail, Loader2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,9 +22,22 @@ type LoginForm = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
+
+  // Check for error in URL params
+  useEffect(() => {
+    const error = searchParams.get("error")
+    if (error === "Configuration") {
+      setAuthError(
+        "Server configuration error. Please ensure NEXTAUTH_SECRET and NEXTAUTH_URL are set in environment variables."
+      )
+    } else if (error) {
+      setAuthError("Authentication error. Please try again.")
+    }
+  }, [searchParams])
 
   const {
     register,
@@ -47,13 +60,19 @@ export default function LoginPage() {
 
       if (result?.error) {
         setAuthError("Invalid email or password. Please try again.")
+        setIsLoading(false)
       } else if (result?.ok) {
-        router.push("/")
-        router.refresh()
+        // Wait a bit for session to be established
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        // Use window.location for a full page reload to ensure session is loaded
+        window.location.href = "/"
+      } else {
+        setAuthError("Login failed. Please try again.")
+        setIsLoading(false)
       }
-    } catch {
+    } catch (error) {
+      console.error("Login error:", error)
       setAuthError("Something went wrong. Please try again.")
-    } finally {
       setIsLoading(false)
     }
   }
@@ -140,10 +159,13 @@ export default function LoginPage() {
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600"
+                  className="flex items-start gap-3 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600"
                 >
-                  <div className="h-2 w-2 rounded-full bg-red-500 flex-shrink-0" />
-                  {authError}
+                  <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-medium mb-1">Error</p>
+                    <p className="text-xs">{authError}</p>
+                  </div>
                 </motion.div>
               )}
 
