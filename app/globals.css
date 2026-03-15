@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@layer base {
+  a,
+  button,
+  [role="button"],
+  .cursor-pointer {
+    cursor: pointer !important;
+  }
+
+  :root {
+    /* Warm beige/cream coffee shop theme */
+    --background: 38 25% 96%; /* Warm cream */
+    --foreground: 25 20% 15%; /* Dark brown text */
+    --card: 35 30% 98%; /* Soft beige cards */
+    --card-foreground: 25 20% 15%;
+    --popover: 35 30% 98%;
+    --popover-foreground: 25 20% 15%;
+    --primary: 25 25% 25%; /* #5d3b2a */
+    --primary-foreground: 38 25% 96%;
+    --secondary: 35 20% 90%; /* Light beige */
+    --secondary-foreground: 25 20% 15%;
+    --muted: 35 15% 92%;
+    --muted-foreground: 25 15% 45%;
+    --accent: 25 25% 25%; /* #5d3b2a */
+    --accent-foreground: 38 25% 96%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 35 20% 85%;
+    --input: 35 20% 90%;
+    --ring: 25 25% 25%;
+    --radius: 0.75rem; /* Slightly more rounded but not too much */
+    --brand: 25 25% 25%;
+    --brand-foreground: 38 25% 96%;
+    /* Chart colors */
+    --chart-1: 25 25% 25%;
+    --chart-2: 142 76% 36%;
+    --chart-3: 217 91% 60%;
+    --chart-4: 25 95% 53%;
+    --chart-5: 45 93% 47%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --brand: 24 95% 53%;
+    --brand-foreground: 0 0% 100%;
+    /* Chart colors */
+    --chart-1: 28 35% 55%;
+    --chart-2: 142 76% 36%;
+    --chart-3: 217 91% 60%;
+    --chart-4: 25 95% 53%;
+    --chart-5: 45 93% 47%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+  
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
