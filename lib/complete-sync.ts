@@ -1,5 +1,5 @@
 import { getSupabaseBrowserClient } from "./supabase"
-import { mockCategories, mockMenuItems, mockLocations } from "../../lib/mock-data"
+import { mockCategories, mockProducts, mockOrders } from "../data/mock-data"
 
 /**
  * Complete sync of all coffee shop data to admin dashboard
@@ -37,9 +37,16 @@ export async function completeSync() {
     console.log('✅ Existing data cleared')
 
     // Step 3: Sync Locations FIRST (no dependencies)
-    console.log('Step 3: Syncing locations...')
+    // Step 3: Sync locations (using mock data for now)
+    console.log('Step 3: Creating sample locations...')
+    const sampleLocations = [
+      { id: 'loc-1', name: 'Main Street', address: '123 Main St' },
+      { id: 'loc-2', name: 'Downtown', address: '456 Downtown Ave' },
+      { id: 'loc-3', name: 'Mall Location', address: '789 Mall Blvd' }
+    ]
+    
     let syncedLocations = 0
-    for (const location of mockLocations) {
+    for (const location of sampleLocations) {
       const { error } = await supabase
         .from('locations')
         .insert(location)
@@ -55,80 +62,38 @@ export async function completeSync() {
       console.log(`✅ Location synced: ${location.name}`)
     }
 
-    // Step 4: Sync Categories in correct order (parents first, then children)
-    console.log('Step 4: Syncing categories in hierarchical order...')
+    // Step 4: Sync Categories (simplified for mock data)
+    console.log('Step 4: Syncing categories...')
     
-    // First, sync all parent categories (no parent_id)
-    const parentCategories = mockCategories.filter(c => !c.parent_id)
-    let syncedParentCategories = 0
+    let syncedCategories = 0
     
-    console.log(`Syncing ${parentCategories.length} parent categories...`)
-    for (const category of parentCategories) {
+    console.log(`Syncing ${mockCategories.length} categories...`)
+    for (const category of mockCategories) {
       const { error } = await supabase
         .from('menu_categories')
         .insert({
           id: category.id,
           name: category.name,
           description: category.description,
-          display_order: category.display_order,
-          is_active: category.is_active,
-          parent_id: null, // Explicitly set to null for parent categories
-          created_at: category.created_at,
-          updated_at: category.updated_at
+          display_order: 1,
+          is_active: category.isActive,
+          parent_id: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
       
       if (error) {
-        console.error('Error syncing parent category:', category.name, error)
+        console.error('Error syncing category:', category.name, error)
         return {
           success: false,
-          error: `Failed to sync parent category "${category.name}": ${error.message}`
+          error: `Failed to sync category "${category.name}": ${error.message}`
         }
       }
-      syncedParentCategories++
-      console.log(`✅ Parent category synced: ${category.name}`)
+      syncedCategories++
+      console.log(`✅ Category synced: ${category.name}`)
     }
 
-    // Then, sync all child categories (with parent_id)
-    const childCategories = mockCategories.filter(c => c.parent_id)
-    let syncedChildCategories = 0
-    
-    console.log(`Syncing ${childCategories.length} child categories...`)
-    for (const category of childCategories) {
-      // Verify parent exists before inserting child
-      const { data: parentExists } = await supabase
-        .from('menu_categories')
-        .select('id')
-        .eq('id', category.parent_id)
-        .single()
-      
-      if (!parentExists) {
-        console.warn(`Skipping child category "${category.name}" - parent "${category.parent_id}" not found`)
-        continue
-      }
-      
-      const { error } = await supabase
-        .from('menu_categories')
-        .insert({
-          id: category.id,
-          name: category.name,
-          description: category.description,
-          display_order: category.display_order,
-          is_active: category.is_active,
-          parent_id: category.parent_id,
-          created_at: category.created_at,
-          updated_at: category.updated_at
-        })
-      
-      if (error) {
-        console.error('Error syncing child category:', category.name, error)
-        return {
-          success: false,
-          error: `Failed to sync child category "${category.name}": ${error.message}`
-        }
-      }
-      syncedChildCategories++
-      console.log(`✅ Child category synced: ${category.name}`)
-    }
+    console.log(`✅ Categories synced: ${syncedCategories} total`)
 
     // Step 5: Verify all categories were inserted
     console.log('Step 5: Verifying categories...')
@@ -151,10 +116,10 @@ export async function completeSync() {
     let syncedProducts = 0
     let skippedProducts = 0
     
-    for (const item of mockMenuItems) {
+    for (const item of mockProducts) {
       // Verify category exists before inserting menu item
-      if (!existingCategoryIds.has(item.category_id)) {
-        console.warn(`Skipping menu item "${item.name}" - category "${item.category_id}" not found`)
+      if (!existingCategoryIds.has(item.categoryId)) {
+        console.warn(`Skipping menu item "${item.name}" - category "${item.categoryId}" not found`)
         skippedProducts++
         continue
       }
@@ -163,16 +128,16 @@ export async function completeSync() {
         .from('menu_items')
         .insert({
           id: item.id,
-          category_id: item.category_id,
+          category_id: item.categoryId,
           name: item.name,
           description: item.description,
-          base_price: item.base_price,
-          image_url: item.image_url,
-          is_available: item.is_available,
-          is_featured: item.is_featured,
-          prep_time_minutes: item.prep_time_minutes,
-          created_at: item.created_at,
-          updated_at: item.updated_at
+          base_price: item.price,
+          image_url: item.imageUrl,
+          is_available: item.isAvailable,
+          is_featured: item.isFeatured,
+          prep_time_minutes: 5, // Default value since not in mock data
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
       
       if (error) {
@@ -203,7 +168,7 @@ export async function completeSync() {
         tax_amount: 1.92,
         status: 'completed',
         payment_status: 'paid',
-        location_id: mockLocations[0].id,
+        location_id: sampleLocations[0].id,
         is_guest_order: false,
         special_instructions: 'Extra hot, no foam'
       },
@@ -216,7 +181,7 @@ export async function completeSync() {
         tax_amount: 1.28,
         status: 'preparing',
         payment_status: 'paid',
-        location_id: mockLocations[1].id,
+        location_id: sampleLocations[1].id,
         is_guest_order: true,
         special_instructions: null
       },
@@ -229,7 +194,7 @@ export async function completeSync() {
         tax_amount: 2.52,
         status: 'pending',
         payment_status: 'pending',
-        location_id: mockLocations[2].id,
+        location_id: sampleLocations[2].id,
         is_guest_order: false,
         special_instructions: 'Pickup at 3 PM'
       }
@@ -249,8 +214,8 @@ export async function completeSync() {
       }
 
       // Add order items (only use products that were successfully synced)
-      const availableProducts = mockMenuItems.filter(item => 
-        existingCategoryIds.has(item.category_id)
+      const availableProducts = mockProducts.filter(item => 
+        existingCategoryIds.has(item.categoryId)
       )
       
       if (availableProducts.length > 0) {
@@ -267,8 +232,8 @@ export async function completeSync() {
               menu_item_id: product.id,
               item_name: product.name,
               quantity,
-              unit_price: product.base_price,
-              total_price: product.base_price * quantity,
+              unit_price: product.price,
+              total_price: product.price * quantity,
               customizations: []
             })
           

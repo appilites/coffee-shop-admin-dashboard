@@ -1,5 +1,5 @@
 import { getSupabaseBrowserClient } from "./supabase"
-import { mockCategories, mockMenuItems } from "../../lib/mock-data"
+import { mockCategories, mockProducts } from "../data/mock-data"
 
 /**
  * Initialize database with coffee shop data
@@ -27,22 +27,21 @@ export async function initializeDatabase() {
     }
 
     // 1. Insert Categories FIRST (in correct order - parents first)
-    console.log('Step 1: Syncing categories (parents first)...')
+    console.log('Step 1: Syncing categories...')
     
-    // First sync parent categories (no parent_id)
-    const parentCategories = mockCategories.filter(c => !c.parent_id)
-    console.log(`Syncing ${parentCategories.length} parent categories...`)
+    // Sync all categories (simplified for mock data)
+    console.log(`Syncing ${mockCategories.length} categories...`)
     
-    for (const category of parentCategories) {
+    for (const category of mockCategories) {
       const categoryData = {
         id: category.id,
         name: category.name,
         description: category.description,
-        display_order: category.display_order,
-        is_active: category.is_active,
-        parent_id: category.parent_id,
-        created_at: category.created_at,
-        updated_at: category.updated_at
+        display_order: 1, // Default value
+        is_active: category.isActive,
+        parent_id: null, // No hierarchy in mock data
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
 
       const { error } = await supabase
@@ -50,48 +49,17 @@ export async function initializeDatabase() {
         .upsert(categoryData, { onConflict: 'id' })
       
       if (error) {
-        console.error('Error inserting parent category:', category.name, error)
+        console.error('Error inserting category:', category.name, error)
         return {
           success: false,
-          error: `Failed to sync parent category "${category.name}": ${error.message}`
+          error: `Failed to sync category "${category.name}": ${error.message}`
         }
       } else {
-        console.log('✅ Parent category synced:', category.name)
+        console.log('✅ Category synced:', category.name)
       }
     }
 
-    // Then sync child categories (with parent_id)
-    const childCategories = mockCategories.filter(c => c.parent_id)
-    console.log(`Syncing ${childCategories.length} child categories...`)
-    
-    for (const category of childCategories) {
-      const categoryData = {
-        id: category.id,
-        name: category.name,
-        description: category.description,
-        display_order: category.display_order,
-        is_active: category.is_active,
-        parent_id: category.parent_id,
-        created_at: category.created_at,
-        updated_at: category.updated_at
-      }
-
-      const { error } = await supabase
-        .from('menu_categories')
-        .upsert(categoryData, { onConflict: 'id' })
-      
-      if (error) {
-        console.error('Error inserting child category:', category.name, error)
-        return {
-          success: false,
-          error: `Failed to sync child category "${category.name}": ${error.message}`
-        }
-      } else {
-        console.log('✅ Child category synced:', category.name)
-      }
-    }
-
-    // 3. Verify categories exist before inserting menu items
+    // 2. Verify categories exist before inserting menu items
     console.log('Step 2: Verifying categories exist...')
     const { data: existingCategories, error: categoryCheckError } = await supabase
       .from('menu_categories')
@@ -107,31 +75,31 @@ export async function initializeDatabase() {
     const existingCategoryIds = new Set(existingCategories?.map((c: any) => c.id) || [])
     console.log(`Found ${existingCategoryIds.size} categories in database`)
 
-    // 4. Insert Menu Items LAST (only for existing categories)
+    // 3. Insert Menu Items LAST (only for existing categories)
     console.log('Step 3: Syncing menu items...')
     let syncedItems = 0
     let skippedItems = 0
     
-    for (const item of mockMenuItems) {
+    for (const item of mockProducts) {
       // Check if category exists
-      if (!existingCategoryIds.has(item.category_id)) {
-        console.warn(`Skipping item "${item.name}" - category "${item.category_id}" not found`)
+      if (!existingCategoryIds.has(item.categoryId)) {
+        console.warn(`Skipping item "${item.name}" - category "${item.categoryId}" not found`)
         skippedItems++
         continue
       }
 
       const itemData = {
         id: item.id,
-        category_id: item.category_id,
+        category_id: item.categoryId,
         name: item.name,
         description: item.description,
-        base_price: item.base_price,
-        image_url: item.image_url,
-        is_available: item.is_available,
-        is_featured: item.is_featured,
-        prep_time_minutes: item.prep_time_minutes,
-        created_at: item.created_at,
-        updated_at: item.updated_at
+        base_price: item.price,
+        image_url: item.imageUrl,
+        is_available: item.isAvailable,
+        is_featured: item.isFeatured,
+        prep_time_minutes: 5, // Default value
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
 
       try {
@@ -172,7 +140,7 @@ export async function initializeDatabase() {
     }
 
     // Clean up menu items not in coffee shop
-    const coffeeShopItemIds = mockMenuItems.map(i => i.id)
+    const coffeeShopItemIds = mockProducts.map(i => i.id)
     if (coffeeShopItemIds.length > 0) {
       const { error: deleteItemsError } = await supabase
         .from('menu_items')
@@ -245,7 +213,7 @@ export async function checkDatabaseStatus() {
       categories: categoryCount || 0,
       products: productCount || 0,
       isEmpty: (categoryCount || 0) === 0 && (productCount || 0) === 0,
-      needsSync: (categoryCount || 0) < mockCategories.length || (productCount || 0) < mockMenuItems.length
+      needsSync: (categoryCount || 0) < mockCategories.length || (productCount || 0) < mockProducts.length
     }
   } catch (error) {
     console.error('Error checking database status:', error)
@@ -274,11 +242,11 @@ export async function syncCategories() {
         id: category.id,
         name: category.name,
         description: category.description,
-        display_order: category.display_order,
-        is_active: category.is_active,
-        parent_id: category.parent_id,
-        created_at: category.created_at,
-        updated_at: category.updated_at
+        display_order: 1, // Default value
+        is_active: category.isActive,
+        parent_id: null, // No hierarchy in mock data
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
 
       const { error } = await supabase
@@ -315,19 +283,19 @@ export async function syncMenuItems() {
     console.log('Syncing menu items only...')
     
     // Insert/update coffee shop menu items
-    for (const item of mockMenuItems) {
+    for (const item of mockProducts) {
       const itemData = {
         id: item.id,
-        category_id: item.category_id,
+        category_id: item.categoryId,
         name: item.name,
         description: item.description,
-        base_price: item.base_price,
-        image_url: item.image_url,
-        is_available: item.is_available,
-        is_featured: item.is_featured,
-        prep_time_minutes: item.prep_time_minutes,
-        created_at: item.created_at,
-        updated_at: item.updated_at
+        base_price: item.price,
+        image_url: item.imageUrl,
+        is_available: item.isAvailable,
+        is_featured: item.isFeatured,
+        prep_time_minutes: 5, // Default value
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
 
       const { error } = await supabase
@@ -340,7 +308,7 @@ export async function syncMenuItems() {
     }
 
     // Clean up menu items not in coffee shop
-    const coffeeShopItemIds = mockMenuItems.map(i => i.id)
+    const coffeeShopItemIds = mockProducts.map(i => i.id)
     const { error: deleteError } = await supabase
       .from('menu_items')
       .delete()
@@ -350,7 +318,7 @@ export async function syncMenuItems() {
       console.warn('Warning cleaning up menu items:', deleteError)
     }
 
-    return { success: true, count: mockMenuItems.length }
+    return { success: true, count: mockProducts.length }
   } catch (error) {
     console.error('Error syncing menu items:', error)
     return { success: false, error }
@@ -369,11 +337,11 @@ export async function updateProductImages() {
     let updatedCount = 0
     
     // Update each menu item with new image URL
-    for (const item of mockMenuItems) {
+    for (const item of mockProducts) {
       const { error } = await supabase
         .from('menu_items')
         .update({ 
-          image_url: item.image_url,
+          image_url: item.imageUrl,
           updated_at: new Date().toISOString()
         })
         .eq('id', item.id)
@@ -410,7 +378,7 @@ export async function cleanupOrphanedData() {
     
     // Get coffee shop IDs
     const coffeeShopCategoryIds = mockCategories.map(c => c.id)
-    const coffeeShopItemIds = mockMenuItems.map(i => i.id)
+    const coffeeShopItemIds = mockProducts.map(i => i.id)
 
     // Count items before cleanup
     const { count: beforeCategories } = await supabase

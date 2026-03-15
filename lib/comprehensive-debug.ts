@@ -1,5 +1,5 @@
 import { getSupabaseBrowserClient } from "./supabase"
-import { mockCategories, mockMenuItems, mockLocations } from "../../lib/mock-data"
+import { mockCategories, mockProducts, mockOrders } from "../data/mock-data"
 
 /**
  * Comprehensive debug function to identify all issues
@@ -64,17 +64,17 @@ export async function comprehensiveDebug() {
     console.log('Step 3: Checking mock data availability...')
     try {
       const mockDataStats = {
-        locations: mockLocations.length,
+        locations: 3, // Using sample locations
         categories: mockCategories.length,
-        menuItems: mockMenuItems.length,
-        sampleLocation: mockLocations[0]?.name || 'None',
+        menuItems: mockProducts.length,
+        sampleLocation: 'Main Street',
         sampleCategory: mockCategories[0]?.name || 'None',
-        sampleMenuItem: mockMenuItems[0]?.name || 'None'
+        sampleMenuItem: mockProducts[0]?.name || 'None'
       }
 
       results.mockData = { 
-        success: mockLocations.length > 0 && mockCategories.length > 0 && mockMenuItems.length > 0,
-        error: mockLocations.length === 0 ? 'No mock locations' : mockCategories.length === 0 ? 'No mock categories' : mockMenuItems.length === 0 ? 'No mock menu items' : '',
+        success: mockCategories.length > 0 && mockProducts.length > 0,
+        error: mockCategories.length === 0 ? 'No mock categories' : mockProducts.length === 0 ? 'No mock products' : '',
         details: mockDataStats 
       }
       console.log('✅ Mock data loaded:', mockDataStats)

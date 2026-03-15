@@ -399,7 +399,7 @@ export default function ProductDetailsPage() {
                       </div>
                     )}
                     
-                    {index < product.variations.length - 1 && (
+                    {index < (product.variations?.length || 0) - 1 && (
                       <div className="border-t border-border/20 pt-2" />
                     )}
                   </div>

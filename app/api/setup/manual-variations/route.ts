@@ -100,7 +100,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       message: `Applied variations to ${updateCount} products`,
-      updatedCount,
+      updatedCount: updateCount,
       updatedProducts
     })
 
