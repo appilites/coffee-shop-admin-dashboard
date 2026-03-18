@@ -32,7 +32,7 @@ function LoginForm() {
     const error = searchParams.get("error")
     if (error === "Configuration") {
       setAuthError(
-        "Server configuration error. Please ensure NEXTAUTH_SECRET and NEXTAUTH_URL are set in environment variables."
+        "Server configuration error. Please set these 2 keys in Netlify environment variables: 1) NEXTAUTH_SECRET (generate at https://generate-secret.vercel.app/32) 2) NEXTAUTH_URL (set to https://coffee-shop-dashboard222.netlify.app)"
       )
     } else if (error) {
       setAuthError("Authentication error. Please try again.")

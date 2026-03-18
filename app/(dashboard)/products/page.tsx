@@ -101,7 +101,13 @@ export default function ProductsPage() {
       ])
 
       if (!productsResponse.ok) {
-        console.error('Products API Error:', productsResponse.status, productsResponse.statusText)
+        let errorBody: any = null
+        try {
+          errorBody = await productsResponse.json()
+        } catch {
+          // ignore JSON parse error
+        }
+        console.error('Products API Error:', productsResponse.status, productsResponse.statusText, errorBody)
         throw new Error(`Products API returned ${productsResponse.status}`)
       }
       if (!categoriesResponse.ok) {

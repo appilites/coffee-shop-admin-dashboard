@@ -1,7 +1,41 @@
+/**
+ * Variations API Routes — uses menu_items.variations JSONB column
+ * No longer embeds variations in description field
+ */
+
 import { NextResponse } from "next/server"
 import { getSupabaseAdminClient } from "@/lib/supabase-server"
 
-// GET - Fetch all products with their variations
+// Helper to compute price range from variations
+function computePriceData(basePrice: number, variations: any[] | null | undefined) {
+  const safeVariations = Array.isArray(variations) ? variations : []
+  let minPrice = basePrice
+  let maxPrice = basePrice
+
+  for (const variation of safeVariations) {
+    const opts = Array.isArray(variation.options) ? variation.options : []
+    if (variation.type === "radio") {
+      const prices = opts.map((o: any) => Number(o.priceModifier ?? 0))
+      if (prices.length) {
+        minPrice += Math.min(...prices)
+        maxPrice += Math.max(...prices)
+      }
+    } else {
+      const sum = opts.reduce(
+        (acc: number, o: any) => acc + Number(o.priceModifier ?? 0),
+        0
+      )
+      maxPrice += sum
+    }
+  }
+
+  return {
+    calculatedTotalPrice: maxPrice,
+    priceRange: { minPrice, maxPrice },
+  }
+}
+
+// GET - Fetch all products with their variations (from JSONB column)
 export async function GET() {
   try {
     const supabase = getSupabaseAdminClient()
@@ -14,44 +48,19 @@ export async function GET() {
         description,
         base_price,
         image_url,
+        variations,
         category:menu_categories(id, name)
       `)
       .order('name')
 
     if (error) throw error
 
-    // Parse variations from all products
     const productsWithVariations = products?.map(product => {
-      let variations = []
-      let calculatedPrices = null
-      let hasVariations = false
-
-      if (product.description) {
-        hasVariations = product.description.includes('[VARIATIONS:')
-        
-        if (hasVariations) {
-          // Use same regex as other APIs for consistency
-          const variationsMatch = product.description.match(/\[VARIATIONS:(.*?)\](?:\[PRICES:|$)/s)
-          if (variationsMatch) {
-            try {
-              const variationsJson = variationsMatch[1].trim()
-              variations = JSON.parse(variationsJson)
-            } catch (e) {
-              console.warn(`Could not parse variations for ${product.name}:`, e)
-            }
-          }
-          
-          const pricesMatch = product.description.match(/\[PRICES:(.*?)\](?:\s|$)/s)
-          if (pricesMatch) {
-            try {
-              const pricesJson = pricesMatch[1].trim()
-              calculatedPrices = JSON.parse(pricesJson)
-            } catch (e) {
-              console.warn(`Could not parse prices for ${product.name}:`, e)
-            }
-          }
-        }
-      }
+      const variations = Array.isArray(product.variations) ? product.variations : []
+      const { calculatedTotalPrice, priceRange } = computePriceData(
+        product.base_price,
+        variations
+      )
 
       return {
         id: product.id,
@@ -59,18 +68,14 @@ export async function GET() {
         basePrice: product.base_price,
         imageUrl: product.image_url,
         category: product.category,
-        hasVariations,
+        hasVariations: variations.length > 0,
         variationsCount: variations.length,
         variations: variations,
-        calculatedPrices: calculatedPrices,
-        priceRange: calculatedPrices?.priceRange || { 
-          minPrice: product.base_price, 
-          maxPrice: product.base_price 
-        }
+        calculatedPrices: { calculatedTotalPrice, priceRange },
+        priceRange
       }
     }) || []
 
-    // Separate products with and without variations
     const withVariations = productsWithVariations.filter(p => p.hasVariations)
     const withoutVariations = productsWithVariations.filter(p => !p.hasVariations)
 
@@ -95,7 +100,7 @@ export async function GET() {
   }
 }
 
-// PUT - Update variations for a specific product
+// PUT - Update variations for a specific product (saves to JSONB column)
 export async function PUT(request: Request) {
   try {
     const body = await request.json()
@@ -110,66 +115,11 @@ export async function PUT(request: Request) {
 
     const supabase = getSupabaseAdminClient()
 
-    // Get current product
-    const { data: currentProduct, error: fetchError } = await supabase
-      .from('menu_items')
-      .select('description, base_price')
-      .eq('id', productId)
-      .single()
-
-    if (fetchError || !currentProduct) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Product not found' 
-      }, { status: 404 })
-    }
-
-    let currentDescription = currentProduct.description || ""
-    
-    // Remove existing variations and prices from description
-    currentDescription = currentDescription
-      .replace(/\n\n\[VARIATIONS:.*?\](\[PRICES:.*?\])?/s, '')
-      .replace(/\[VARIATIONS:.*?\](\[PRICES:.*?\])?/s, '')
-
-    // Add new variations if provided
-    let newDescription = currentDescription
-    if (variations && variations.length > 0) {
-      // Calculate price data
-      const basePrice = currentProduct.base_price || 0
-      let minPrice = basePrice
-      let maxPrice = basePrice
-      
-      variations.forEach((variation: any) => {
-        if (variation.type === 'radio') {
-          const prices = variation.options.map((opt: any) => opt.priceModifier || 0)
-          minPrice += Math.min(...prices)
-          maxPrice += Math.max(...prices)
-        } else {
-          const totalPrice = variation.options.reduce((sum: number, opt: any) => 
-            sum + (opt.priceModifier || 0), 0)
-          maxPrice += totalPrice
-        }
-      })
-
-      const priceData = {
-        calculatedTotalPrice: maxPrice,
-        priceRange: { minPrice, maxPrice }
-      }
-
-      const variationsJson = JSON.stringify(variations)
-      const priceDataJson = JSON.stringify(priceData)
-      
-      newDescription = currentDescription + 
-        (currentDescription ? "\n\n" : "") + 
-        `[VARIATIONS:${variationsJson}]` +
-        `[PRICES:${priceDataJson}]`
-    }
-
-    // Update the product
+    // Update the product's variations JSONB column directly
     const { error: updateError } = await supabase
       .from('menu_items')
       .update({
-        description: newDescription,
+        variations: Array.isArray(variations) ? variations : [],
         updated_at: new Date().toISOString()
       })
       .eq('id', productId)
@@ -194,7 +144,7 @@ export async function PUT(request: Request) {
   }
 }
 
-// DELETE - Remove all variations from a product
+// DELETE - Remove all variations from a product (clears JSONB column)
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -209,32 +159,11 @@ export async function DELETE(request: Request) {
 
     const supabase = getSupabaseAdminClient()
 
-    // Get current product
-    const { data: currentProduct, error: fetchError } = await supabase
-      .from('menu_items')
-      .select('description')
-      .eq('id', productId)
-      .single()
-
-    if (fetchError || !currentProduct) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Product not found' 
-      }, { status: 404 })
-    }
-
-    let currentDescription = currentProduct.description || ""
-    
-    // Remove variations and prices from description
-    const cleanDescription = currentDescription
-      .replace(/\n\n\[VARIATIONS:.*?\](\[PRICES:.*?\])?/s, '')
-      .replace(/\[VARIATIONS:.*?\](\[PRICES:.*?\])?/s, '') || null
-
-    // Update the product
+    // Clear the variations JSONB column
     const { error: updateError } = await supabase
       .from('menu_items')
       .update({
-        description: cleanDescription,
+        variations: [],
         updated_at: new Date().toISOString()
       })
       .eq('id', productId)

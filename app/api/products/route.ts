@@ -5,12 +5,43 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { getSupabaseAdminClient, createServerSupabaseClient } from "@/lib/supabase-server"
+import { getSupabaseAdminClient, createServerSupabaseClient, getSupabaseServerClient } from "@/lib/supabase-server"
 
-// GET — List all products
+// Helper to compute price range from variations
+function computePriceData(basePrice: number, variations: any[] | null | undefined) {
+  const safeVariations = Array.isArray(variations) ? variations : []
+  let minPrice = basePrice
+  let maxPrice = basePrice
+
+  for (const variation of safeVariations) {
+    const opts = Array.isArray(variation.options) ? variation.options : []
+    if (variation.type === "radio") {
+      const prices = opts.map((o: any) => Number(o.priceModifier ?? 0))
+      if (prices.length) {
+        minPrice += Math.min(...prices)
+        maxPrice += Math.max(...prices)
+      }
+    } else {
+      const sum = opts.reduce(
+        (acc: number, o: any) => acc + Number(o.priceModifier ?? 0),
+        0
+      )
+      maxPrice += sum
+    }
+  }
+
+  return {
+    calculatedTotalPrice: maxPrice,
+    priceRange: { minPrice, maxPrice },
+  }
+}
+
+// GET — List all products (variations stored in menu_items.variations)
 export async function GET() {
   try {
-    const supabase = await createServerSupabaseClient()
+    // Use server client that prefers admin/service role when available
+    // This avoids RLS / permission issues when listing all products
+    const supabase = await getSupabaseServerClient()
 
     const { data: products, error } = await supabase
       .from('menu_items')
@@ -28,69 +59,45 @@ export async function GET() {
       `)
       .order('name')
 
-    if (error) throw error
+    if (error) {
+      console.error("Supabase error in /api/products GET:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: (error as any).code,
+      })
+      throw error
+    }
 
-    // Transform the data to parse JSON variations and prices from description
-    const transformedProducts = products?.map(product => {
-      let variations = []
-      let calculatedPrices = null
-      let cleanDescription = product.description
-
-      console.log(`Processing product: ${product.name}`)
-      console.log(`Raw description: ${product.description}`)
-
-      if (product.description) {
-        // More flexible regex to handle newlines and spaces - same as individual product API
-        const variationsMatch = product.description.match(/\[VARIATIONS:(.*?)\](?:\[PRICES:|$)/s)
-        if (variationsMatch) {
-          try {
-            const variationsJson = variationsMatch[1].trim()
-            variations = JSON.parse(variationsJson)
-            console.log(`Found ${variations.length} variations for ${product.name}`)
-          } catch (e) {
-            console.warn('Could not parse variations from description:', e)
-          }
-        } else {
-          console.log(`No variations found for ${product.name}`)
-        }
-        
-        const pricesMatch = product.description.match(/\[PRICES:(.*?)\](?:\s|$)/s)
-        if (pricesMatch) {
-          try {
-            const pricesJson = pricesMatch[1].trim()
-            calculatedPrices = JSON.parse(pricesJson)
-          } catch (e) {
-            console.warn('Could not parse prices from description:', e)
-          }
-        }
-        
-        // Clean the description for display - same as individual product API
-        cleanDescription = product.description
-          .replace(/\n\n\[VARIATIONS:.*?\](\[PRICES:.*?\])?/s, '')
-          .replace(/\[VARIATIONS:.*?\](\[PRICES:.*?\])?/s, '') || null
-      }
+    const transformedProducts = (products || []).map((product: any) => {
+      const variations = Array.isArray(product.variations) ? product.variations : []
+      const { calculatedTotalPrice, priceRange } = computePriceData(
+        product.base_price,
+        variations
+      )
 
       return {
         ...product,
-        description: cleanDescription,
-        variations: variations,
-        calculatedTotalPrice: calculatedPrices?.calculatedTotalPrice || product.base_price,
-        priceRange: calculatedPrices?.priceRange || { minPrice: product.base_price, maxPrice: product.base_price }
+        variations,
+        calculatedTotalPrice,
+        priceRange,
       }
-    }) || []
-
-    console.log(`Returning ${transformedProducts.length} products`)
-    console.log('Products with variations:', transformedProducts.filter(p => p.variations.length > 0).map(p => ({ name: p.name, variationCount: p.variations.length })))
+    })
 
     return NextResponse.json(transformedProducts)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching products:', error)
-    const msg = error instanceof Error ? error.message : 'Unknown error'
-    return NextResponse.json({ error: "Failed to fetch products", details: msg }, { status: 500 })
+    const msg = error?.message || 'Unknown error'
+    const details = error?.details || null
+    const code = error?.code || null
+    return NextResponse.json(
+      { error: "Failed to fetch products", message: msg, details, code },
+      { status: 500 }
+    )
   }
 }
 
-// POST — Create product (admin client bypasses RLS)
+// POST — Create product (admin client bypasses RLS, variations into menu_items.variations)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -119,7 +126,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Category not found: ${body.categoryId}` }, { status: 400 })
     }
 
-    const insertData = {
+    const insertData: any = {
       id: crypto.randomUUID(),
       name: body.name.trim(),
       description: body.description?.trim() || null,
@@ -129,26 +136,9 @@ export async function POST(request: NextRequest) {
       is_available: body.isAvailable !== false,
       is_featured: body.isFeatured === true,
       prep_time_minutes: 5,
-      // Store calculated prices (we'll store these in the description for now)
+      variations: Array.isArray(body.variations) ? body.variations : [],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    }
-
-    // If we have variations, we need to store them somehow
-    if (body.variations && body.variations.length > 0) {
-      // Store variations and calculated prices in description
-      const variationsJson = JSON.stringify(body.variations)
-      const priceData = {
-        calculatedTotalPrice: body.calculatedTotalPrice || price,
-        priceRange: body.priceRange || { minPrice: price, maxPrice: price }
-      }
-      const priceDataJson = JSON.stringify(priceData)
-      
-      const originalDescription = insertData.description || ""
-      insertData.description = originalDescription + 
-        (originalDescription ? "\n\n" : "") + 
-        `[VARIATIONS:${variationsJson}]` +
-        `[PRICES:${priceDataJson}]`
     }
 
     const { data: product, error } = await supabase
@@ -175,41 +165,17 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Product created successfully:', product)
 
-    // Parse variations and prices back from description for response
-    let variations = []
-    let calculatedPrices = null
-    if (product.description) {
-      const variationsMatch = product.description.match(/\[VARIATIONS:(.*?)\]/)
-      if (variationsMatch) {
-        try {
-          variations = JSON.parse(variationsMatch[1])
-        } catch (e) {
-          console.warn('Could not parse variations from description:', e)
-        }
-      }
-      
-      const pricesMatch = product.description.match(/\[PRICES:(.*?)\]/)
-      if (pricesMatch) {
-        try {
-          calculatedPrices = JSON.parse(pricesMatch[1])
-        } catch (e) {
-          console.warn('Could not parse prices from description:', e)
-        }
-      }
-      
-      // Clean the description for display
-      product.description = product.description
-        .replace(/\n\n\[VARIATIONS:.*?\]/, '')
-        .replace(/\[VARIATIONS:.*?\]/, '')
-        .replace(/\[PRICES:.*?\]/, '') || null
-    }
+    const variations = Array.isArray(product.variations) ? product.variations : []
+    const { calculatedTotalPrice, priceRange } = computePriceData(
+      product.base_price,
+      variations
+    )
 
-    // Parse variations back to object format for response
     const responseProduct = {
       ...product,
-      variations: variations,
-      calculatedTotalPrice: calculatedPrices?.calculatedTotalPrice || product.base_price,
-      priceRange: calculatedPrices?.priceRange || { minPrice: product.base_price, maxPrice: product.base_price }
+      variations,
+      calculatedTotalPrice,
+      priceRange,
     }
 
     return NextResponse.json(responseProduct, { status: 201 })

@@ -7,7 +7,36 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSupabaseAdminClient, createServerSupabaseClient } from "@/lib/supabase-server"
 
-// GET — Get product by ID
+// Helper to compute price range from variations
+function computePriceData(basePrice: number, variations: any[] | null | undefined) {
+  const safeVariations = Array.isArray(variations) ? variations : []
+  let minPrice = basePrice
+  let maxPrice = basePrice
+
+  for (const variation of safeVariations) {
+    const opts = Array.isArray(variation.options) ? variation.options : []
+    if (variation.type === "radio") {
+      const prices = opts.map((o: any) => Number(o.priceModifier ?? 0))
+      if (prices.length) {
+        minPrice += Math.min(...prices)
+        maxPrice += Math.max(...prices)
+      }
+    } else {
+      const sum = opts.reduce(
+        (acc: number, o: any) => acc + Number(o.priceModifier ?? 0),
+        0
+      )
+      maxPrice += sum
+    }
+  }
+
+  return {
+    calculatedTotalPrice: maxPrice,
+    priceRange: { minPrice, maxPrice },
+  }
+}
+
+// GET — Get product by ID (variations from menu_items.variations)
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
@@ -31,53 +60,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
     }
     if (error) throw error
-
-    // Parse variations and prices from description
-    let variations = []
-    let calculatedPrices = null
-    let cleanDescription = product.description
-
-    if (product.description) {
-      console.log('Raw description:', product.description)
-      
-      // More flexible regex to handle newlines and spaces
-      const variationsMatch = product.description.match(/\[VARIATIONS:(.*?)\](?:\[PRICES:|$)/s)
-      if (variationsMatch) {
-        try {
-          const variationsJson = variationsMatch[1].trim()
-          console.log('Extracted variations JSON:', variationsJson)
-          variations = JSON.parse(variationsJson)
-          console.log('Parsed variations:', variations)
-        } catch (e) {
-          console.warn('Could not parse variations from description:', e)
-          console.warn('Variations JSON that failed to parse:', variationsMatch[1])
-        }
-      } else {
-        console.log('No variations match found in description')
-      }
-      
-      const pricesMatch = product.description.match(/\[PRICES:(.*?)\](?:\s|$)/s)
-      if (pricesMatch) {
-        try {
-          const pricesJson = pricesMatch[1].trim()
-          calculatedPrices = JSON.parse(pricesJson)
-        } catch (e) {
-          console.warn('Could not parse prices from description:', e)
-        }
-      }
-      
-      // Clean the description for display
-      cleanDescription = product.description
-        .replace(/\n\n\[VARIATIONS:.*?\](\[PRICES:.*?\])?/s, '')
-        .replace(/\[VARIATIONS:.*?\](\[PRICES:.*?\])?/s, '') || null
-    }
+    
+    const variations = Array.isArray(product.variations) ? product.variations : []
+    const { calculatedTotalPrice, priceRange } = computePriceData(
+      product.base_price,
+      variations
+    )
 
     const transformedProduct = {
       ...product,
-      description: cleanDescription,
-      variations: variations,
-      calculatedTotalPrice: calculatedPrices?.calculatedTotalPrice || product.base_price,
-      priceRange: calculatedPrices?.priceRange || { minPrice: product.base_price, maxPrice: product.base_price }
+      variations,
+      calculatedTotalPrice,
+      priceRange,
     }
 
     return NextResponse.json(transformedProduct)
@@ -114,39 +108,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (body.isAvailable !== undefined) updateData.is_available  = Boolean(body.isAvailable)
     if (body.isFeatured !== undefined)  updateData.is_featured   = Boolean(body.isFeatured)
     
-    // Handle variations update - store in description field
+    // Handle variations update - write directly into menu_items.variations
     if (body.variations !== undefined) {
-      // Get current product to preserve existing description
-      const { data: currentProduct } = await supabase
-        .from('menu_items')
-        .select('description')
-        .eq('id', id)
-        .single()
-
-      let currentDescription = currentProduct?.description || ""
-      
-      // Remove existing variations and prices from description
-      currentDescription = currentDescription
-        .replace(/\n\n\[VARIATIONS:.*?\]/, '')
-        .replace(/\[VARIATIONS:.*?\]/, '')
-        .replace(/\[PRICES:.*?\]/, '')
-      
-      // Add new variations and prices if any
-      if (body.variations && body.variations.length > 0) {
-        const variationsJson = JSON.stringify(body.variations)
-        const priceData = {
-          calculatedTotalPrice: body.calculatedTotalPrice || updateData.base_price || 0,
-          priceRange: body.priceRange || { minPrice: updateData.base_price || 0, maxPrice: updateData.base_price || 0 }
-        }
-        const priceDataJson = JSON.stringify(priceData)
-        
-        updateData.description = currentDescription + 
-          (currentDescription ? "\n\n" : "") + 
-          `[VARIATIONS:${variationsJson}]` +
-          `[PRICES:${priceDataJson}]`
-      } else {
-        updateData.description = currentDescription || null
-      }
+      updateData.variations = Array.isArray(body.variations) ? body.variations : []
     }
 
     const { data: product, error } = await supabase
@@ -176,44 +140,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     console.log('✅ Product updated successfully:', product)
 
-    // Parse variations and prices back from description for response
-    let variations = []
-    let calculatedPrices = null
-    let cleanDescription = product.description
+    const variations = Array.isArray(product.variations) ? product.variations : []
+    const { calculatedTotalPrice, priceRange } = computePriceData(
+      product.base_price,
+      variations
+    )
 
-    if (product.description) {
-      const variationsMatch = product.description.match(/\[VARIATIONS:(.*?)\]/)
-      if (variationsMatch) {
-        try {
-          variations = JSON.parse(variationsMatch[1])
-        } catch (e) {
-          console.warn('Could not parse variations from description:', e)
-        }
-      }
-      
-      const pricesMatch = product.description.match(/\[PRICES:(.*?)\]/)
-      if (pricesMatch) {
-        try {
-          calculatedPrices = JSON.parse(pricesMatch[1])
-        } catch (e) {
-          console.warn('Could not parse prices from description:', e)
-        }
-      }
-      
-      // Clean the description for display
-      cleanDescription = product.description
-        .replace(/\n\n\[VARIATIONS:.*?\]/, '')
-        .replace(/\[VARIATIONS:.*?\]/, '')
-        .replace(/\[PRICES:.*?\]/, '') || null
-    }
-
-    // Parse variations back to object format for response
     const responseProduct = {
       ...product,
-      description: cleanDescription,
-      variations: variations,
-      calculatedTotalPrice: calculatedPrices?.calculatedTotalPrice || product.base_price,
-      priceRange: calculatedPrices?.priceRange || { minPrice: product.base_price, maxPrice: product.base_price }
+      variations,
+      calculatedTotalPrice,
+      priceRange,
     }
 
     return NextResponse.json(responseProduct)
