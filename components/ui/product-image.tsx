@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { ImageIcon } from "lucide-react"
 
@@ -21,6 +21,14 @@ export function ProductImage({
 }: ProductImageProps) {
   const [imageError, setImageError] = useState(false)
   const [imageLoading, setImageLoading] = useState(true)
+
+  // Reset error/loading when src changes so a new URL can load
+  useEffect(() => {
+    if (src) {
+      setImageError(false)
+      setImageLoading(true)
+    }
+  }, [src])
 
   const handleImageLoad = () => {
     setImageLoading(false)

@@ -7,16 +7,16 @@ import { z } from "zod"
 // Variation option schema
 const variationOptionSchema = z.object({
   id: z.string(),
-  label: z.string().min(1, "Option label is required"),
-  priceModifier: z.number().default(0),
+  label: z.string().optional().default(""),
+  priceModifier: z.coerce.number().default(0),
 })
 
 // Variation schema
 const variationSchema = z.object({
   id: z.string(),
-  title: z.string().min(1, "Variation title is required"),
+  title: z.string().optional().default(""),
   type: z.enum(["checkbox", "radio"]),
-  options: z.array(variationOptionSchema).min(1, "At least one option is required"),
+  options: z.array(variationOptionSchema).optional().default([]),
 })
 
 // Product validation schema
@@ -25,7 +25,7 @@ export const productSchema = z.object({
   description: z.string().max(1000, "Description is too long").optional(),
   price: z.number().min(0.01, "Price must be greater than 0").max(1000, "Price is too high"),
   categoryId: z.string().min(1, "Category is required"),
-  imageUrl: z.string().url("Invalid image URL").optional().or(z.literal("")),
+  imageUrl: z.string().max(2000, "Image URL is too long").optional().or(z.literal("")),
   isAvailable: z.boolean().default(true),
   isFeatured: z.boolean().default(false),
   sku: z.string().max(50, "SKU is too long").optional(),

@@ -1,6 +1,7 @@
 /**
- * Cleanup API - Removes [VARIATIONS:...] and [PRICES:...] tags from product descriptions
- * These tags were used in the old system; variations are now stored in the JSONB column
+ * Cleanup API - Removes [VARIATIONS:...] and [PRICES:...] tags from product descriptions.
+ * Variations are now stored in menu_items.variations (JSONB). This endpoint is unauthenticated
+ * for one-time cleanup. Run GET to preview, then POST to apply.
  */
 
 import { NextResponse } from "next/server"
@@ -68,11 +69,11 @@ export async function POST() {
       try {
         let cleanDescription = product.description || ""
         
-        // Remove [VARIATIONS:...] and [PRICES:...] tags
+        // Remove [VARIATIONS:...]] and optional [PRICES:...] tags (use [\s\S]*? so nested ] in JSON don't break match)
         cleanDescription = cleanDescription
-          .replace(/\n\n\[VARIATIONS:.*?\](\[PRICES:.*?\])?/gs, '')
-          .replace(/\[VARIATIONS:.*?\](\[PRICES:.*?\])?/gs, '')
-          .replace(/\[PRICES:.*?\]/gs, '')
+          .replace(/\n\n\[VARIATIONS:[\s\S]*?\]\](\[PRICES:[\s\S]*?\])?/g, '')
+          .replace(/\[VARIATIONS:[\s\S]*?\]\](\[PRICES:[\s\S]*?\])?/g, '')
+          .replace(/\[PRICES:[\s\S]*?\]/g, '')
           .trim()
 
         // Set to null if empty after cleanup

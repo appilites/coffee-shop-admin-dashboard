@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
+import type { FieldErrors } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { productSchema, type ProductFormValues } from "@/lib/validations"
 import { Button } from "@/components/ui/button"
@@ -109,6 +110,14 @@ export function ProductForm({ product, categories }: ProductFormProps) {
   const isAvailable = watch("isAvailable")
   const isFeatured = watch("isFeatured")
   const price = watch("price")
+
+  // Sync image preview when editing a product that has an image (e.g. after load or navigation)
+  useEffect(() => {
+    if (product?.imageUrl) {
+      setImagePreview(product.imageUrl)
+      setValue("imageUrl", product.imageUrl)
+    }
+  }, [product?.id, product?.imageUrl, setValue])
 
   // Calculate total price including all variation options
   const calculateTotalPrice = () => {
@@ -259,10 +268,25 @@ export function ProductForm({ product, categories }: ProductFormProps) {
     setIsSubmitting(true)
 
     try {
+      // Keep only complete variations/options so partial UI edits don't block product updates.
+      const sanitizedVariations = (variations || [])
+        .map((variation) => ({
+          ...variation,
+          title: variation.title?.trim() || "",
+          options: (variation.options || [])
+            .map((option) => ({
+              ...option,
+              label: option.label?.trim() || "",
+              priceModifier: Number(option.priceModifier || 0),
+            }))
+            .filter((option) => option.label.length > 0),
+        }))
+        .filter((variation) => variation.title.length > 0 && variation.options.length > 0)
+
       // Include variations and calculated prices in the form data
       const formData = {
         ...data,
-        variations: variations,
+        variations: sanitizedVariations,
         calculatedTotalPrice: totalPrice,
         priceRange: priceRange,
       }
@@ -370,18 +394,24 @@ export function ProductForm({ product, categories }: ProductFormProps) {
     }
   }
 
+  const onInvalid = (formErrors: FieldErrors<ProductFormValues>) => {
+    console.error("❌ Product form validation failed:", formErrors)
+    const firstError = Object.values(formErrors).find(Boolean) as { message?: string } | undefined
+    toast.error(firstError?.message || "Please fix required fields before updating")
+  }
+
   return (
     <Card className="border-border/40 shadow-soft">
       <CardContent className="pt-6">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
           {/* Image Upload */}
           <div className="space-y-2">
             <Label>Product Image</Label>
             <div className="flex items-center gap-4">
-              {imagePreview && (
+              {(imagePreview ?? product?.imageUrl) && (
                 <div className="relative h-32 w-32 overflow-hidden rounded-lg border">
                   <ProductImage 
-                    src={imagePreview} 
+                    src={imagePreview ?? product?.imageUrl ?? undefined} 
                     alt="Product preview" 
                     className="h-full w-full"
                     showFallbackIcon={false}

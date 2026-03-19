@@ -116,13 +116,14 @@ export default function EditProductPage() {
     )
   }
 
-  // Transform product data to match form expectations
+  // Transform product data to match form expectations (API returns snake_case e.g. image_url)
+  const imageUrl = product.image_url ?? (product as { imageUrl?: string | null }).imageUrl ?? null
   const formProduct = {
     id: product.id,
     name: product.name,
     description: product.description,
     price: product.base_price,
-    imageUrl: product.image_url,
+    imageUrl: imageUrl && String(imageUrl).trim() ? String(imageUrl).trim() : null,
     categoryId: product.category_id,
     isAvailable: product.is_available,
     isFeatured: product.is_featured,
@@ -157,6 +158,7 @@ export default function EditProductPage() {
         transition={{ delay: 0.1, duration: 0.3 }}
       >
         <ProductForm 
+          key={product.id}
           product={formProduct} 
           categories={categories} 
         />
