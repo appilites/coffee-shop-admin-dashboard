@@ -43,6 +43,23 @@ export async function POST(request: NextRequest) {
 
     const supabase = getSupabaseAdminClient()
 
+    // Enforce one-level hierarchy: only top-level categories can be parents.
+    if (body.parentId) {
+      const { data: parentCategory, error: parentError } = await supabase
+        .from('menu_categories')
+        .select('id, parent_id')
+        .eq('id', body.parentId)
+        .single()
+
+      if (parentError || !parentCategory) {
+        return NextResponse.json({ error: "Invalid parent category" }, { status: 400 })
+      }
+
+      if (parentCategory.parent_id) {
+        return NextResponse.json({ error: "Only parent categories can be selected for subcategories" }, { status: 400 })
+      }
+    }
+
     const categoryData = {
       id: crypto.randomUUID(),
       name: body.name.trim(),

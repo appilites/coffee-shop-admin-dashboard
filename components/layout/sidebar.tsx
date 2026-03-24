@@ -165,18 +165,20 @@ export function Sidebar() {
               <span>Logout</span>
             </Button>
           </AlertDialogTrigger>
-          <AlertDialogContent className="bg-white border-border/40">
+          <AlertDialogContent className="bg-white border-border/40 shadow-xl">
             <AlertDialogHeader>
               <AlertDialogTitle className="font-serif">Confirm Logout</AlertDialogTitle>
               <AlertDialogDescription>
                 Are you sure you want to log out of the admin dashboard?
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter className="flex-row justify-end gap-2">
-              <AlertDialogCancel className="cursor-pointer m-0">Cancel</AlertDialogCancel>
+            <AlertDialogFooter className="mt-2 flex flex-row flex-wrap items-center justify-end gap-2 sm:justify-end [&>button]:min-w-[6rem]">
+              <AlertDialogCancel className="m-0 cursor-pointer border-border/60">
+                Cancel
+              </AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleLogout}
-                className="bg-destructive text-white hover:bg-destructive/90 cursor-pointer border-0 m-0"
+                className="m-0 cursor-pointer border-0 bg-destructive text-white shadow-sm hover:bg-destructive/90 focus-visible:ring-destructive/30"
               >
                 Logout
               </AlertDialogAction>

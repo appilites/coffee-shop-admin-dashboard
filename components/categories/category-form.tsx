@@ -47,6 +47,9 @@ export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProp
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [loadingCategories, setLoadingCategories] = useState(true)
+  const [categoryType, setCategoryType] = useState<"parent" | "subcategory">(
+    category?.parent_id ? "subcategory" : "parent"
+  )
 
   const {
     register,
@@ -82,10 +85,10 @@ export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProp
         const response = await fetch('/api/categories')
         if (response.ok) {
           const data = await response.json()
-          // Filter out current category and its descendants to prevent circular references
+          // Only top-level categories can be selected as parent categories.
           const availableCategories = data.filter((cat: Category) => {
+            if (cat.parent_id) return false
             if (category && cat.id === category.id) return false
-            if (category && cat.parent_id === category.id) return false
             return true
           })
           setCategories(availableCategories)
@@ -110,11 +113,15 @@ export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProp
     setIsSubmitting(true)
 
     try {
+      if (categoryType === "subcategory" && !data.parentId) {
+        throw new Error("Please select a parent category for the subcategory")
+      }
+
       const categoryData = {
         name: data.name,
         description: data.description || null,
         isActive: data.isActive,
-        parentId: data.parentId || null,
+        parentId: categoryType === "subcategory" ? data.parentId || null : null,
       }
 
       console.log('Submitting category data:', categoryData)
@@ -191,34 +198,56 @@ export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProp
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="parentId">Parent Category</Label>
+        <Label htmlFor="categoryType">Category Type</Label>
         <Select
-          value={parentId || "none"}
-          onValueChange={(value) => {
-            console.log('Parent category changed to:', value)
-            setValue("parentId", value === "none" ? null : value)
+          value={categoryType}
+          onValueChange={(value: "parent" | "subcategory") => {
+            setCategoryType(value)
+            if (value === "parent") {
+              setValue("parentId", null)
+            }
           }}
-          disabled={isSubmitting || loadingCategories}
+          disabled={isSubmitting}
         >
-          <SelectTrigger id="parentId" className="w-full bg-white border-border/60">
-            <SelectValue placeholder={loadingCategories ? "Loading categories..." : "Select parent category (optional)"} />
+          <SelectTrigger id="categoryType" className="w-full bg-white border-border/60">
+            <SelectValue placeholder="Select category type" />
           </SelectTrigger>
           <SelectContent className="bg-white">
-            <SelectItem value="none">No Parent (Top Level)</SelectItem>
-            {categories.map((cat) => (
-              <SelectItem key={cat.id} value={cat.id}>
-                {cat.name}
-              </SelectItem>
-            ))}
+            <SelectItem value="parent">Parent Category</SelectItem>
+            <SelectItem value="subcategory">Sub Category</SelectItem>
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
-          Choose a parent category to create a subcategory, or leave empty for a top-level category.
+          Only parent categories can have subcategories.
         </p>
-        {errors.parentId && (
-          <p className="text-sm text-destructive">{errors.parentId.message}</p>
-        )}
       </div>
+
+      {categoryType === "subcategory" && (
+        <div className="space-y-2">
+          <Label htmlFor="parentId">Select Parent Category</Label>
+          <Select
+            value={parentId || undefined}
+            onValueChange={(value) => {
+              setValue("parentId", value || null)
+            }}
+            disabled={isSubmitting || loadingCategories}
+          >
+            <SelectTrigger id="parentId" className="w-full bg-white border-border/60">
+              <SelectValue placeholder={loadingCategories ? "Loading parent categories..." : "Select parent category"} />
+            </SelectTrigger>
+            <SelectContent className="bg-white">
+              {categories.map((cat) => (
+                <SelectItem key={cat.id} value={cat.id}>
+                  {cat.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.parentId && (
+            <p className="text-sm text-destructive">{errors.parentId.message}</p>
+          )}
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="isActive">Status</Label>

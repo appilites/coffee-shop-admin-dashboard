@@ -52,6 +52,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({ error: "Invalid parent category" }, { status: 400 })
       }
 
+      // Enforce one-level hierarchy: only top-level categories can be parent categories.
+      if (parentCategory.parent_id) {
+        return NextResponse.json({ error: "Only parent categories can be selected for subcategories" }, { status: 400 })
+      }
+
       // Check if the parent category is a child of the current category
       let currentParentId = parentCategory.parent_id
       while (currentParentId) {
