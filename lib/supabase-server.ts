@@ -54,15 +54,8 @@ export async function createServerSupabaseClient() {
  * Use this for ALL write operations (INSERT / UPDATE / DELETE) in API routes.
  */
 export function getSupabaseAdminClient() {
-  if (!supabaseServiceRoleKey) {
-    throw new Error(
-      "Secret key not set in .env.local.\n" +
-      "For NEW Supabase projects: add SUPABASE_SECRET_KEY=sb_secret_...\n" +
-      "For OLD Supabase projects: add SUPABASE_SERVICE_ROLE_KEY=eyJhbGci...\n" +
-      "Find it at: Supabase Dashboard → Project Settings → API"
-    )
-  }
-  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+  const key = supabaseServiceRoleKey || supabaseAnonKey
+  return createClient(supabaseUrl, key, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

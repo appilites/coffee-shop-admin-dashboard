@@ -3,7 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { getSupabaseAdminClient, createServerSupabaseClient } from "@/lib/supabase-server"
+import { getSupabaseServerClient, createServerSupabaseClient } from "@/lib/supabase-server"
 
 // GET — List all categories (read-only, anon key is fine)
 export async function GET() {
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Category name is required" }, { status: 400 })
     }
 
-    const supabase = getSupabaseAdminClient()
+    const supabase = await getSupabaseServerClient()
 
     // Enforce one-level hierarchy: only top-level categories can be parents.
     if (body.parentId) {

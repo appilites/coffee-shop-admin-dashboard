@@ -36,6 +36,8 @@ interface Product {
   prep_time_minutes: number
   created_at: string
   updated_at: string
+  loyalty_points_earn?: number
+  loyaltyPointsEarn?: number
   variations?: Array<{
     id: string
     title: string
@@ -127,8 +129,9 @@ export default function EditProductPage() {
     categoryId: product.category_id,
     isAvailable: product.is_available,
     isFeatured: product.is_featured,
-    sku: null, // Add if you have SKU field
-    variations: product.variations || [] // Pass variations from API
+    sku: null,
+    variations: product.variations || [],
+    loyaltyPointsEarn: product.loyaltyPointsEarn ?? product.loyalty_points_earn ?? 0,
   }
 
   return (

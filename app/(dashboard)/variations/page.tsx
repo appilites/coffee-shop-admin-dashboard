@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
-import { Loader2, Edit, Trash2, Eye, Settings } from "lucide-react"
+import { Loader2, Edit, Trash2, Eye, Settings, RefreshCw } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 import Link from "next/link"
 import {
@@ -149,8 +149,8 @@ export default function VariationsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={fetchVariations} variant="outline">
-            <Loader2 className="h-4 w-4 mr-2" />
+          <Button onClick={fetchVariations} variant="outline" disabled={loading} className="gap-2">
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
           <Link href="/setup-variations">

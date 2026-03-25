@@ -98,11 +98,13 @@ export function ProductForm({ product, categories }: ProductFormProps) {
           isFeatured: product.isFeatured,
           sku: product.sku || "",
           variations: product.variations || [],
+          loyaltyPointsEarn: (product as any).loyaltyPointsEarn ?? 0,
         }
       : {
           isAvailable: true,
           isFeatured: false,
           variations: [],
+          loyaltyPointsEarn: 0,
         },
   })
 
@@ -589,6 +591,26 @@ export function ProductForm({ product, categories }: ProductFormProps) {
               disabled={isSubmitting}
             />
             {errors.sku && <p className="text-sm text-destructive">{errors.sku.message}</p>}
+          </div>
+
+          {/* Loyalty Points */}
+          <div className="space-y-2">
+            <Label htmlFor="loyaltyPointsEarn" className="flex items-center gap-2">
+              🎁 Loyalty Points Earned
+            </Label>
+            <Input
+              id="loyaltyPointsEarn"
+              type="number"
+              min={0}
+              step={1}
+              {...register("loyaltyPointsEarn", { valueAsNumber: true })}
+              placeholder="0"
+              disabled={isSubmitting}
+            />
+            <p className="text-xs text-muted-foreground">
+              Points a customer earns when they purchase this product. Set to 0 to disable.
+            </p>
+            {errors.loyaltyPointsEarn && <p className="text-sm text-destructive">{errors.loyaltyPointsEarn.message}</p>}
           </div>
 
           {/* Variations */}

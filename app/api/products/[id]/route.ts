@@ -72,6 +72,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       variations,
       calculatedTotalPrice,
       priceRange,
+      loyaltyPointsEarn: product.loyalty_points_earn ?? 0,
+      loyaltyPointsCost: product.loyalty_points_cost ?? 0,
     }
 
     return NextResponse.json(transformedProduct)
@@ -112,6 +114,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (body.variations !== undefined) {
       updateData.variations = Array.isArray(body.variations) ? body.variations : []
     }
+    if (body.loyaltyPointsEarn !== undefined)
+      updateData.loyalty_points_earn = Math.max(0, Number(body.loyaltyPointsEarn) || 0)
 
     const { data: product, error } = await supabase
       .from('menu_items')

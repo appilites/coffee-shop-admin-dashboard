@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { getSupabaseAdminClient, createServerSupabaseClient, getSupabaseServerClient } from "@/lib/supabase-server"
+import { createServerSupabaseClient, getSupabaseServerClient } from "@/lib/supabase-server"
 
 // Helper to compute price range from variations
 function computePriceData(basePrice: number, variations: any[] | null | undefined) {
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Price must be a valid number greater than 0" }, { status: 400 })
     }
 
-    const supabase = getSupabaseAdminClient()
+    const supabase = await getSupabaseServerClient()
 
     // Check if category exists
     const { data: category, error: categoryError } = await supabase
@@ -137,6 +137,7 @@ export async function POST(request: NextRequest) {
       is_featured: body.isFeatured === true,
       prep_time_minutes: 5,
       variations: Array.isArray(body.variations) ? body.variations : [],
+      loyalty_points_earn: Math.max(0, Number(body.loyaltyPointsEarn) || 0),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }

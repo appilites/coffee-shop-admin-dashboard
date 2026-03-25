@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -9,10 +9,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
-
 import {
   Select,
   SelectContent,
@@ -30,10 +28,6 @@ interface Category {
   parent_id: string | null
   created_at: string
   updated_at: string
-  parent?: {
-    id: string
-    name: string
-  } | null
 }
 
 interface CategoryFormProps {
@@ -45,11 +39,6 @@ interface CategoryFormProps {
 export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loadingCategories, setLoadingCategories] = useState(true)
-  const [categoryType, setCategoryType] = useState<"parent" | "subcategory">(
-    category?.parent_id ? "subcategory" : "parent"
-  )
 
   const {
     register,
@@ -72,68 +61,23 @@ export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProp
         },
   })
 
-  const name = watch("name")
-  const parentId = watch("parentId")
-
-  // Debug: Log the current form values
-  console.log('Current form values:', { name, parentId, category })
-
-  // Fetch categories for parent selection
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const response = await fetch('/api/categories')
-        if (response.ok) {
-          const data = await response.json()
-          // Only top-level categories can be selected as parent categories.
-          const availableCategories = data.filter((cat: Category) => {
-            if (cat.parent_id) return false
-            if (category && cat.id === category.id) return false
-            return true
-          })
-          setCategories(availableCategories)
-        }
-      } catch (error) {
-        console.error('Error fetching categories:', error)
-      } finally {
-        setLoadingCategories(false)
-      }
-    }
-
-    fetchCategories()
-  }, [category])
-
-  // Auto-generate slug from name (not used in database but kept for form validation)
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setValue("name", value)
-  }
-
   const onSubmit = async (data: CategoryFormValues) => {
     setIsSubmitting(true)
-
     try {
-      if (categoryType === "subcategory" && !data.parentId) {
-        throw new Error("Please select a parent category for the subcategory")
-      }
-
       const categoryData = {
         name: data.name,
         description: data.description || null,
         isActive: data.isActive,
-        parentId: categoryType === "subcategory" ? data.parentId || null : null,
+        // preserve existing parentId on edit; null on create (parent-only form)
+        parentId: category ? data.parentId ?? null : null,
       }
-
-      console.log('Submitting category data:', categoryData)
 
       const url = category ? `/api/categories/${category.id}` : '/api/categories'
       const method = category ? 'PUT' : 'POST'
 
       const response = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(categoryData),
       })
 
@@ -142,9 +86,6 @@ export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProp
         throw new Error(errorData.error || 'Failed to save category')
       }
 
-      const result = await response.json()
-      console.log('Category saved successfully:', result)
-      
       toast.success(category ? "Category updated successfully" : "Category created successfully")
       if (onSuccess) {
         onSuccess()
@@ -152,7 +93,6 @@ export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProp
         router.push("/categories")
       }
     } catch (error) {
-      console.error('Error saving category:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to save category')
     } finally {
       setIsSubmitting(false)
@@ -160,23 +100,19 @@ export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProp
   }
 
   const handleCancel = () => {
-    if (onCancel) {
-      onCancel()
-    } else {
-      router.back()
-    }
+    if (onCancel) onCancel()
+    else router.back()
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <div className="space-y-2">
         <Label htmlFor="name">
-          Category Name <span className="text-destructive">*</span>
+          Name <span className="text-destructive">*</span>
         </Label>
         <Input
           id="name"
           {...register("name")}
-          onChange={handleNameChange}
           placeholder="e.g., Coffee, Tea, Protein"
           disabled={isSubmitting}
         />
@@ -188,7 +124,7 @@ export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProp
         <Textarea
           id="description"
           {...register("description")}
-          placeholder="Category description..."
+          placeholder="Optional description..."
           rows={3}
           disabled={isSubmitting}
         />
@@ -196,58 +132,6 @@ export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProp
           <p className="text-sm text-destructive">{errors.description.message}</p>
         )}
       </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="categoryType">Category Type</Label>
-        <Select
-          value={categoryType}
-          onValueChange={(value: "parent" | "subcategory") => {
-            setCategoryType(value)
-            if (value === "parent") {
-              setValue("parentId", null)
-            }
-          }}
-          disabled={isSubmitting}
-        >
-          <SelectTrigger id="categoryType" className="w-full bg-white border-border/60">
-            <SelectValue placeholder="Select category type" />
-          </SelectTrigger>
-          <SelectContent className="bg-white">
-            <SelectItem value="parent">Parent Category</SelectItem>
-            <SelectItem value="subcategory">Sub Category</SelectItem>
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-muted-foreground">
-          Only parent categories can have subcategories.
-        </p>
-      </div>
-
-      {categoryType === "subcategory" && (
-        <div className="space-y-2">
-          <Label htmlFor="parentId">Select Parent Category</Label>
-          <Select
-            value={parentId || undefined}
-            onValueChange={(value) => {
-              setValue("parentId", value || null)
-            }}
-            disabled={isSubmitting || loadingCategories}
-          >
-            <SelectTrigger id="parentId" className="w-full bg-white border-border/60">
-              <SelectValue placeholder={loadingCategories ? "Loading parent categories..." : "Select parent category"} />
-            </SelectTrigger>
-            <SelectContent className="bg-white">
-              {categories.map((cat) => (
-                <SelectItem key={cat.id} value={cat.id}>
-                  {cat.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.parentId && (
-            <p className="text-sm text-destructive">{errors.parentId.message}</p>
-          )}
-        </div>
-      )}
 
       <div className="space-y-2">
         <Label htmlFor="isActive">Status</Label>
@@ -269,7 +153,7 @@ export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProp
         </p>
       </div>
 
-      <div className="flex gap-4 justify-end pt-4">
+      <div className="flex gap-3 justify-end pt-2">
         <Button type="button" variant="outline" onClick={handleCancel} disabled={isSubmitting}>
           Cancel
         </Button>
@@ -280,7 +164,7 @@ export function CategoryForm({ category, onSuccess, onCancel }: CategoryFormProp
               Saving...
             </>
           ) : (
-            category ? "Update Category" : "Create Category"
+            category ? "Update" : "Create Category"
           )}
         </Button>
       </div>

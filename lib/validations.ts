@@ -30,6 +30,7 @@ export const productSchema = z.object({
   isFeatured: z.boolean().default(false),
   sku: z.string().max(50, "SKU is too long").optional(),
   variations: z.array(variationSchema).optional().default([]),
+  loyaltyPointsEarn: z.coerce.number().int().min(0).default(0),
 })
 
 export type ProductFormValues = z.infer<typeof productSchema>

@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Plus, Grid3x3, Table2, Search, Filter, Loader2 } from "lucide-react"
+import { Plus, Grid3x3, Table2, Search, Filter, Loader2, RefreshCw } from "lucide-react"
 import { ProductGrid } from "@/components/products/product-grid"
 import { ProductsTable } from "@/components/products/products-table"
 import { Badge } from "@/components/ui/badge"
@@ -248,13 +248,9 @@ export default function ProductsPage() {
             variant="outline" 
             onClick={fetchData}
             disabled={loading}
-            className="shadow-soft"
+            className="gap-2 shadow-soft"
           >
-            {loading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Search className="h-4 w-4 mr-2" />
-            )}
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
           <Link href="/products/new">

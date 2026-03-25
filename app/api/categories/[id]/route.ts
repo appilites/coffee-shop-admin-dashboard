@@ -3,7 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { getSupabaseAdminClient, createServerSupabaseClient } from "@/lib/supabase-server"
+import { getSupabaseServerClient, createServerSupabaseClient } from "@/lib/supabase-server"
 
 // GET — Read single category (anon key is fine for reads)
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -33,7 +33,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { id } = await params
     const body = await request.json()
-    const supabase = getSupabaseAdminClient()
+    const supabase = await getSupabaseServerClient()
 
     // Validate parent category to prevent circular references
     if (body.parentId && body.parentId === id) {
@@ -118,7 +118,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const supabase = getSupabaseAdminClient()
+    const supabase = await getSupabaseServerClient()
 
     // Check if category has children
     const { data: children, error: childrenError } = await supabase

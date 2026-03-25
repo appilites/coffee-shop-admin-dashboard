@@ -14,11 +14,11 @@ import {
   Settings,
   Coffee,
   LogOut,
+  Gift,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -48,6 +48,11 @@ const menuItems = [
     title: "Orders",
     href: "/orders",
     icon: ShoppingCart,
+  },
+  {
+    title: "Loyalty",
+    href: "/loyalty",
+    icon: Gift,
   },
   {
     title: "Settings",
@@ -165,23 +170,27 @@ export function Sidebar() {
               <span>Logout</span>
             </Button>
           </AlertDialogTrigger>
-          <AlertDialogContent className="bg-white border-border/40 shadow-xl">
+          <AlertDialogContent className="bg-card border-border/40 shadow-xl">
             <AlertDialogHeader>
-              <AlertDialogTitle className="font-serif">Confirm Logout</AlertDialogTitle>
-              <AlertDialogDescription>
+              <AlertDialogTitle className="font-serif text-foreground">
+                Confirm Logout
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-muted-foreground">
                 Are you sure you want to log out of the admin dashboard?
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter className="mt-2 flex flex-row flex-wrap items-center justify-end gap-2 sm:justify-end [&>button]:min-w-[6rem]">
-              <AlertDialogCancel className="m-0 cursor-pointer border-border/60">
+            <AlertDialogFooter className="mt-4 gap-2">
+              <AlertDialogCancel className="min-w-[6rem]">
                 Cancel
               </AlertDialogCancel>
-              <AlertDialogAction
+              <Button
+                variant="destructive"
+                className="min-w-[6rem]"
                 onClick={handleLogout}
-                className="m-0 cursor-pointer border-0 bg-destructive text-white shadow-sm hover:bg-destructive/90 focus-visible:ring-destructive/30"
               >
+                <LogOut className="h-4 w-4 mr-2" />
                 Logout
-              </AlertDialogAction>
+              </Button>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
