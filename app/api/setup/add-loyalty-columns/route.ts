@@ -6,14 +6,18 @@ export async function POST() {
     const supabase = await getSupabaseServerClient()
 
     // Add loyalty_points_earn — points customer earns when buying the product
-    await supabase.rpc('exec_sql', {
-      sql: `ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS loyalty_points_earn INTEGER DEFAULT 0 NOT NULL;`
-    }).catch(() => null)
+    try {
+      await supabase.rpc('exec_sql', {
+        sql: `ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS loyalty_points_earn INTEGER DEFAULT 0 NOT NULL;`
+      })
+    } catch { /* column may already exist */ }
 
     // Add loyalty_points_cost — points required to redeem this product for free (0 = not a reward)
-    await supabase.rpc('exec_sql', {
-      sql: `ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS loyalty_points_cost INTEGER DEFAULT 0 NOT NULL;`
-    }).catch(() => null)
+    try {
+      await supabase.rpc('exec_sql', {
+        sql: `ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS loyalty_points_cost INTEGER DEFAULT 0 NOT NULL;`
+      })
+    } catch { /* column may already exist */ }
 
     // Verify columns exist by reading schema
     const { data, error } = await supabase
