@@ -69,6 +69,7 @@ interface Variation {
   id: string
   title: string
   type: "checkbox" | "radio"
+  required: boolean
   options: VariationOption[]
 }
 
@@ -77,7 +78,11 @@ export function ProductForm({ product, categories }: ProductFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [imagePreview, setImagePreview] = useState<string | null>(product?.imageUrl || null)
   const [imageFile, setImageFile] = useState<File | null>(null)
-  const [variations, setVariations] = useState<Variation[]>(product?.variations || [])
+  const [variations, setVariations] = useState<Variation[]>(
+    (product?.variations || []).map(v => ({ ...v, required: (v as any).required ?? true }))
+  )
+  // Raw string display values for price modifier inputs (allows clearing "0" with backspace)
+  const [priceInputValues, setPriceInputValues] = useState<Record<string, string>>({})
 
   const {
     register,
@@ -186,6 +191,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
       id: `var-${Date.now()}`,
       title: "",
       type: "radio",
+      required: true,
       options: [
         {
           id: `opt-${Date.now()}-1`,
@@ -715,7 +721,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
                 {variations.map((variation, index) => (
                   <Card key={variation.id} className="border-border/40 p-3">
                     <div className="space-y-3">
-                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 grid gap-3 md:grid-cols-2">
                           <div className="space-y-1.5">
                             <Label className="text-xs">
@@ -750,16 +756,40 @@ export function ProductForm({ product, categories }: ProductFormProps) {
                             </Select>
                           </div>
                         </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon-sm"
-                          onClick={() => removeVariation(variation.id)}
+                        <div className="flex flex-col items-center gap-1.5">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon-sm"
+                            onClick={() => removeVariation(variation.id)}
+                            disabled={isSubmitting}
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Required toggle */}
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <Checkbox
+                          id={`required-${variation.id}`}
+                          checked={variation.required ?? true}
+                          onCheckedChange={(checked) =>
+                            updateVariation(variation.id, "required", Boolean(checked))
+                          }
                           disabled={isSubmitting}
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          className="h-4 w-4 border-2 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                        />
+                        <Label
+                          htmlFor={`required-${variation.id}`}
+                          className="text-xs cursor-pointer select-none"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                          {variation.required ?? true
+                            ? <span className="text-destructive font-medium">Required — customer must choose</span>
+                            : <span className="text-muted-foreground">Optional — customer may skip</span>
+                          }
+                        </Label>
                       </div>
 
                       <Separator className="my-2" />
@@ -809,15 +839,26 @@ export function ProductForm({ product, categories }: ProductFormProps) {
                                   <Input
                                     type="number"
                                     step="0.01"
-                                    value={option.priceModifier}
-                                    onChange={(e) =>
-                                      updateOption(
-                                        variation.id,
-                                        option.id,
-                                        "priceModifier",
-                                        parseFloat(e.target.value) || 0
-                                      )
-                                    }
+                                    value={priceInputValues[option.id] ?? String(option.priceModifier)}
+                                    onChange={(e) => {
+                                      const raw = e.target.value
+                                      setPriceInputValues(prev => ({ ...prev, [option.id]: raw }))
+                                      const num = parseFloat(raw)
+                                      if (!isNaN(num)) {
+                                        updateOption(variation.id, option.id, "priceModifier", num)
+                                      }
+                                    }}
+                                    onBlur={(e) => {
+                                      const num = parseFloat(e.target.value)
+                                      const finalNum = isNaN(num) ? 0 : num
+                                      setPriceInputValues(prev => {
+                                        const next = { ...prev }
+                                        delete next[option.id]
+                                        return next
+                                      })
+                                      updateOption(variation.id, option.id, "priceModifier", finalNum)
+                                    }}
+                                    onFocus={(e) => e.target.select()}
                                     placeholder="0.00"
                                     disabled={isSubmitting}
                                     className="h-8 text-sm"

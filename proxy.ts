@@ -7,8 +7,8 @@ export default withAuth({
 })
 
 // Exclude ALL /api/* (NextAuth lives at /api/auth/*), static assets, and /login.
-// Using `api` as a single segment avoids matcher/Rx bugs with `api/auth` and fixes
-// CLIENT_FETCH_ERROR where /api/auth/session returns HTML instead of JSON.
+// Using the top-level `api` segment prevents the middleware from ever touching
+// /api/auth/session — which would cause CLIENT_FETCH_ERROR (HTML returned instead of JSON).
 export const config = {
   matcher: [
     "/((?!api|_next/static|_next/image|favicon.ico|login|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",

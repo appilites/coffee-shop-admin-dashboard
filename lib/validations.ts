@@ -16,6 +16,7 @@ const variationSchema = z.object({
   id: z.string(),
   title: z.string().optional().default(""),
   type: z.enum(["checkbox", "radio"]),
+  required: z.boolean().default(true),
   options: z.array(variationOptionSchema).optional().default([]),
 })
 
