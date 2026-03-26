@@ -130,7 +130,7 @@ export default function EditProductPage() {
     isAvailable: product.is_available,
     isFeatured: product.is_featured,
     sku: null,
-    variations: product.variations || [],
+    variations: (product.variations || []).map(v => ({ ...v, required: (v as any).required ?? true })),
     loyaltyPointsEarn: product.loyaltyPointsEarn ?? product.loyalty_points_earn ?? 0,
   }
 
