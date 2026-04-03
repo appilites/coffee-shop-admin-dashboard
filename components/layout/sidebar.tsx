@@ -78,8 +78,8 @@ export function Sidebar() {
       <aside className="flex h-screen w-64 flex-col border-r border-border/40 bg-card shadow-soft fixed left-0 top-0 overflow-hidden">
         <div className="flex h-20 items-center border-b border-border/40 px-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent shadow-soft">
-              <Coffee className="h-6 w-6 text-primary" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/50 bg-muted">
+              <Coffee className="h-6 w-6 text-muted-foreground" />
             </div>
             <span className="font-serif text-xl font-bold text-foreground">Admin</span>
           </div>
@@ -101,15 +101,11 @@ export function Sidebar() {
     >
       {/* Logo */}
       <div className="flex h-20 items-center border-b border-border/40 px-6">
-        <Link href="/" className="flex items-center gap-3 group cursor-pointer">
-          <motion.div
-            whileHover={{ scale: 1.1, rotate: 5 }}
-            transition={{ type: "spring", stiffness: 400 }}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-accent to-accent/80 shadow-soft"
-          >
-            <Coffee className="h-6 w-6 text-primary" />
-          </motion.div>
-          <span className="font-serif text-xl font-bold text-foreground group-hover:text-accent transition-colors">
+        <Link href="/" className="flex items-center gap-3 cursor-pointer">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/50 bg-muted">
+            <Coffee className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <span className="font-serif text-xl font-bold text-foreground">
             Admin
           </span>
         </Link>
@@ -131,27 +127,14 @@ export function Sidebar() {
               <Link
                 href={item.href}
                 className={cn(
-                  "group relative flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 cursor-pointer",
+                  "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors cursor-pointer",
                   isActive
-                    ? "bg-accent text-accent-foreground shadow-soft"
+                    ? "text-foreground"
                     : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 )}
               >
-                <motion.div
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <Icon className="h-5 w-5" />
-                </motion.div>
+                <Icon className="h-5 w-5 shrink-0" />
                 <span>{item.title}</span>
-                {isActive && (
-                  <motion.div
-                    layoutId="activeIndicator"
-                    className="absolute left-0 top-0 bottom-0 w-1 rounded-r-full bg-primary"
-                    initial={false}
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                  />
-                )}
               </Link>
             </motion.div>
           )
@@ -170,7 +153,7 @@ export function Sidebar() {
               <span>Logout</span>
             </Button>
           </AlertDialogTrigger>
-          <AlertDialogContent className="bg-card border-border/40 shadow-xl">
+          <AlertDialogContent className="border-border/40 shadow-xl">
             <AlertDialogHeader>
               <AlertDialogTitle className="font-serif text-foreground">
                 Confirm Logout

@@ -1,9 +1,12 @@
 import { getSupabaseBrowserClient } from "./supabase"
-import type { 
-  ProductFormData, 
-  CategoryFormData, 
-  OrderWithItems, 
-  DashboardStats 
+import {
+  type ProductFormData,
+  type CategoryFormData,
+  type OrderWithItems,
+  type OrderStatus,
+  type DashboardStats,
+  type DashboardTimeRange,
+  normalizeOrderStatus,
 } from "./types"
 
 const supabase = getSupabaseBrowserClient()
@@ -324,7 +327,7 @@ export const orderService = {
       customerEmail: order.customer_email || '',
       customerPhone: order.customer_phone,
       totalAmount: order.total_amount,
-      status: order.status as OrderWithItems['status'],
+      status: normalizeOrderStatus(order.status),
       paymentStatus: order.payment_status,
       specialNotes: order.special_instructions,
       createdAt: new Date(order.created_at),
@@ -333,7 +336,10 @@ export const orderService = {
         id: item.id,
         quantity: item.quantity,
         price: item.unit_price,
-        customizations: JSON.stringify(item.customizations || {}),
+        customizations:
+          item.customizations && typeof item.customizations === "object"
+            ? item.customizations
+            : item.customizations ?? undefined,
         product: {
           id: item.product?.id || '',
           name: item.product?.name || item.item_name,
@@ -366,7 +372,7 @@ export const orderService = {
       customerEmail: data.customer_email || '',
       customerPhone: data.customer_phone,
       totalAmount: data.total_amount,
-      status: data.status as OrderWithItems['status'],
+      status: normalizeOrderStatus(data.status),
       paymentStatus: data.payment_status,
       specialNotes: data.special_instructions,
       createdAt: new Date(data.created_at),
@@ -375,7 +381,10 @@ export const orderService = {
         id: item.id,
         quantity: item.quantity,
         price: item.unit_price,
-        customizations: JSON.stringify(item.customizations || {}),
+        customizations:
+          item.customizations && typeof item.customizations === "object"
+            ? item.customizations
+            : item.customizations ?? undefined,
         product: {
           id: item.product?.id || '',
           name: item.product?.name || item.item_name,
@@ -385,7 +394,7 @@ export const orderService = {
     }
   },
 
-  async updateStatus(id: string, status: OrderWithItems['status']) {
+  async updateStatus(id: string, status: OrderStatus) {
     const { data, error } = await supabase
       .from('orders')
       .update({ 
@@ -403,37 +412,58 @@ export const orderService = {
 
 // Dashboard Stats
 export const dashboardService = {
-  async getStats(): Promise<DashboardStats> {
-    // Get total products
+  async getStats(range: DashboardTimeRange = "monthly"): Promise<DashboardStats> {
+    const now = new Date()
+
+    // created_at based filter for orders/revenue only.
+    // (Menu items count stays global to avoid schema assumptions.)
+    const startDate = new Date(now)
+    if (range === "daily") {
+      startDate.setHours(0, 0, 0, 0)
+    } else if (range === "weekly") {
+      // Last 7 days including today.
+      startDate.setDate(now.getDate() - 6)
+      startDate.setHours(0, 0, 0, 0)
+    } else {
+      // "monthly" = current calendar month.
+      startDate.setDate(1)
+      startDate.setHours(0, 0, 0, 0)
+    }
+
+    const startIso = startDate.toISOString()
+
+    // Total products (global)
     const { count: totalProducts } = await supabase
-      .from('menu_items')
-      .select('*', { count: 'exact', head: true })
+      .from("menu_items")
+      .select("*", { count: "exact", head: true })
 
-    // Get total orders
+    // Orders in range
     const { count: totalOrders } = await supabase
-      .from('orders')
-      .select('*', { count: 'exact', head: true })
+      .from("orders")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", startIso)
 
-    // Get pending orders
     const { count: pendingOrders } = await supabase
-      .from('orders')
-      .select('*', { count: 'exact', head: true })
-      .in('status', ['pending', 'confirmed', 'preparing'])
+      .from("orders")
+      .select("*", { count: "exact", head: true })
+      .in("status", ["pending", "confirmed", "preparing"])
+      .gte("created_at", startIso)
 
-    // Get total revenue
     const { data: revenueData } = await supabase
-      .from('orders')
-      .select('total_amount')
-      .eq('payment_status', 'paid')
+      .from("orders")
+      .select("total_amount")
+      .eq("payment_status", "paid")
+      .gte("created_at", startIso)
 
-    const totalRevenue = revenueData?.reduce((sum: number, order: any) => sum + order.total_amount, 0) || 0
+    const totalRevenue =
+      revenueData?.reduce((sum: number, order: any) => sum + Number(order.total_amount ?? 0), 0) || 0
 
     return {
       totalProducts: totalProducts || 0,
       totalOrders: totalOrders || 0,
       totalRevenue,
       pendingOrders: pendingOrders || 0,
-      lowStockProducts: 0 // This would need inventory tracking
+      lowStockProducts: 0, // This would need inventory tracking
     }
   },
 

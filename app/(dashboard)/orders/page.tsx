@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { motion } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Search, Filter, Download, Eye, Edit, Trash2, Loader2, RefreshCw } from "lucide-react"
+import { Search, Filter, Download, Eye, Loader2, RefreshCw } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -30,20 +30,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { orderService } from "@/lib/database"
-import type { OrderWithItems } from "@/lib/types"
+import { normalizeOrderStatus, type OrderWithItems } from "@/lib/types"
 
 const getStatusColor = (status: string) => {
   switch (status.toLowerCase()) {
@@ -70,42 +60,68 @@ const capitalize = (str: string) => {
 }
 
 export default function OrdersPage() {
+  const router = useRouter()
   const [orders, setOrders] = useState<OrderWithItems[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [orderToDelete, setOrderToDelete] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadOrders()
-    
-    // Set up real-time updates every 30 seconds
-    const interval = setInterval(loadOrders, 30000)
-    return () => clearInterval(interval)
-  }, [])
-
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
     try {
-      console.log('Loading orders...')
-      const ordersData = await orderService.getAll()
-      console.log('Loaded orders:', ordersData?.length || 0)
-      setOrders(Array.isArray(ordersData) ? ordersData : [])
+      const res = await fetch("/api/orders", { cache: "no-store" })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || err.details || `HTTP ${res.status}`)
+      }
+      const data = await res.json()
+      const parsed: OrderWithItems[] = (Array.isArray(data) ? data : []).map((o: Record<string, unknown>) => ({
+        id: o.id as string,
+        orderNumber: o.orderNumber as string,
+        customerName: o.customerName as string,
+        customerEmail: (o.customerEmail as string) || "",
+        customerPhone: o.customerPhone as string | undefined,
+        totalAmount: Number(o.totalAmount),
+        status: normalizeOrderStatus(o.status),
+        paymentStatus: String(o.paymentStatus || "pending"),
+        specialNotes: o.specialNotes as string | undefined,
+        createdAt: new Date(o.createdAt as string),
+        updatedAt: new Date((o.updatedAt as string) || (o.createdAt as string)),
+        items: Array.isArray(o.items)
+          ? o.items.map((item: Record<string, unknown>) => ({
+              id: item.id as string,
+              quantity: Number(item.quantity),
+              price: Number(item.price),
+              customizations: item.customizations as OrderWithItems["items"][0]["customizations"],
+              product: {
+                id: (item.product as { id?: string })?.id || "",
+                name: (item.product as { name?: string })?.name || "Item",
+                imageUrl: (item.product as { imageUrl?: string | null })?.imageUrl ?? undefined,
+              },
+            }))
+          : [],
+      }))
+      setOrders(parsed)
     } catch (error) {
-      console.error('Error loading orders:', error)
-      toast.error('Failed to load orders')
-      setOrders([]) // Set empty array on error
+      console.error("Error loading orders:", error)
+      toast.error(error instanceof Error ? error.message : "Failed to load orders")
+      setOrders([])
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    loadOrders()
+    const interval = setInterval(loadOrders, 30000)
+    return () => clearInterval(interval)
+  }, [loadOrders])
 
   const handleRefresh = async () => {
     setRefreshing(true)
     await loadOrders()
-    toast.success('Orders refreshed')
+    toast.success("Orders refreshed")
   }
 
   const filteredOrders = orders.filter((order) => {
@@ -114,17 +130,12 @@ export default function OrdersPage() {
       order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.customerEmail.toLowerCase().includes(searchQuery.toLowerCase())
 
-    const matchesStatus = statusFilter === "all" || order.status.toLowerCase() === statusFilter.toLowerCase()
+    const matchesStatus =
+      statusFilter === "all" ||
+      order.status.toLowerCase() === statusFilter.toLowerCase()
 
     return matchesSearch && matchesStatus
   })
-
-  const handleDelete = () => {
-    toast.success("Order deleted successfully")
-    setDeleteDialogOpen(false)
-    setOrderToDelete(null)
-    loadOrders() // Refresh orders
-  }
 
   if (loading) {
     return (
@@ -139,7 +150,6 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
       <motion.div
         initial={{ y: -10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -149,27 +159,26 @@ export default function OrdersPage() {
         <div>
           <h2 className="font-serif text-3xl font-bold text-foreground">Orders</h2>
           <p className="text-muted-foreground mt-1">
-            Real-time orders from coffee shop customers
+            Orders from your shop — refreshed every 30s
           </p>
         </div>
         <div className="flex gap-2">
-          <Button 
-            onClick={handleRefresh} 
-            variant="outline" 
+          <Button
+            onClick={handleRefresh}
+            variant="outline"
             disabled={refreshing}
             className="gap-2"
           >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-          <Button variant="outline" className="shadow-soft">
+          <Button variant="outline" className="shadow-soft" type="button" disabled>
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
         </div>
       </motion.div>
 
-      {/* Filters */}
       <motion.div
         initial={{ y: 10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -182,7 +191,7 @@ export default function OrdersPage() {
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder="Search orders by number, customer name, or email..."
+                  placeholder="Search by order #, customer name, or email..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 bg-background border-border/60"
@@ -208,7 +217,6 @@ export default function OrdersPage() {
               </div>
             </div>
 
-            {/* Results Count */}
             <div className="mt-4 text-sm text-muted-foreground">
               Showing {filteredOrders.length} of {orders.length} orders
             </div>
@@ -216,7 +224,6 @@ export default function OrdersPage() {
         </Card>
       </motion.div>
 
-      {/* Orders Table */}
       <motion.div
         initial={{ y: 10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -243,10 +250,9 @@ export default function OrdersPage() {
                     {filteredOrders.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                          {orders.length === 0 
-                            ? "No orders yet. Orders from the coffee shop will appear here."
-                            : "No orders match your search criteria."
-                          }
+                          {orders.length === 0
+                            ? "No orders yet. Checkout on the shop creates order records."
+                            : "No orders match your search criteria."}
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -256,7 +262,15 @@ export default function OrdersPage() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: index * 0.05 }}
-                          className="border-border/40 hover:bg-muted/30 transition-colors"
+                          className="border-border/40 hover:bg-muted/30 transition-colors cursor-pointer"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => router.push(`/orders/${order.id}`)}
+                          onKeyDown={(e) => {
+                            if (e.key !== "Enter" && e.key !== " ") return
+                            e.preventDefault()
+                            router.push(`/orders/${order.id}`)
+                          }}
                         >
                           <TableCell className="font-semibold text-xs py-2">{order.orderNumber}</TableCell>
                           <TableCell className="py-2">
@@ -267,14 +281,17 @@ export default function OrdersPage() {
                           </TableCell>
                           <TableCell className="py-2">
                             <div className="max-w-[150px] truncate text-xs">
-                              {order.items.map(i => `${i.quantity}x ${i.product.name}`).join(", ")}
+                              {order.items.map((i) => `${i.quantity}x ${i.product.name}`).join(", ")}
                             </div>
                           </TableCell>
                           <TableCell className="font-semibold text-xs py-2">
                             {formatCurrency(order.totalAmount)}
                           </TableCell>
                           <TableCell className="py-2">
-                            <Badge variant="outline" className={`${getStatusColor(order.status)} text-[10px] px-1.5 py-0 h-5`}>
+                            <Badge
+                              variant="outline"
+                              className={`${getStatusColor(order.status)} text-[10px] px-1.5 py-0 h-5`}
+                            >
                               {capitalize(order.status)}
                             </Badge>
                           </TableCell>
@@ -285,8 +302,8 @@ export default function OrdersPage() {
                                 order.paymentStatus === "paid"
                                   ? "bg-green-50 text-green-700 border-green-200"
                                   : order.paymentStatus === "pending"
-                                  ? "bg-yellow-50 text-yellow-700 border-yellow-200"
-                                  : "bg-red-50 text-red-700 border-red-200"
+                                    ? "bg-yellow-50 text-yellow-700 border-yellow-200"
+                                    : "bg-red-50 text-red-700 border-red-200"
                               }`}
                             >
                               {capitalize(order.paymentStatus)}
@@ -296,50 +313,27 @@ export default function OrdersPage() {
                             {format(order.createdAt, "MMM d, yy")}
                           </TableCell>
                           <TableCell className="text-right py-2">
-                            <div className="flex justify-end gap-1">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Link href={`/orders/${order.id}`}>
-                                    <Button variant="outline" size="icon-sm" className="h-6 w-6 border-border/60 group/btn hover:bg-white">
-                                      <Eye className="h-3 w-3 group-hover/btn:text-[#5d3b2a]" />
-                                    </Button>
-                                  </Link>
-                                </TooltipTrigger>
-                                <TooltipContent className="bg-white text-foreground border border-border/40 shadow-md">
-                                  <p>View Order</p>
-                                </TooltipContent>
-                              </Tooltip>
-
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button variant="outline" size="icon-sm" className="h-6 w-6 border-border/60 group/btn hover:bg-white">
-                                    <Edit className="h-3 w-3 group-hover/btn:text-[#5d3b2a]" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent className="bg-white text-foreground border border-border/40 shadow-md">
-                                  <p>Edit Order</p>
-                                </TooltipContent>
-                              </Tooltip>
-
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button 
-                                    variant="outline" 
-                                    size="icon-sm" 
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Link
+                                  href={`/orders/${order.id}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                  }}
+                                >
+                                  <Button
+                                    variant="outline"
+                                    size="icon-sm"
                                     className="h-6 w-6 border-border/60 group/btn hover:bg-white"
-                                    onClick={() => {
-                                      setOrderToDelete(order.id)
-                                      setDeleteDialogOpen(true)
-                                    }}
                                   >
-                                    <Trash2 className="h-3 w-3 group-hover/btn:text-[#5d3b2a]" />
+                                    <Eye className="h-3 w-3 group-hover/btn:text-[#5d3b2a]" />
                                   </Button>
-                                </TooltipTrigger>
-                                <TooltipContent className="bg-white text-destructive border border-border/40 shadow-md">
-                                  <p>Delete Order</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </div>
+                                </Link>
+                              </TooltipTrigger>
+                              <TooltipContent className="bg-white text-foreground border border-border/40 shadow-md">
+                                <p>View / update order</p>
+                              </TooltipContent>
+                            </Tooltip>
                           </TableCell>
                         </motion.tr>
                       ))
@@ -351,27 +345,6 @@ export default function OrdersPage() {
           </CardContent>
         </Card>
       </motion.div>
-
-      {/* Delete Confirmation */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="bg-white border-border/40">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="font-serif">Delete Order?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the order record.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="border-border/60">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }

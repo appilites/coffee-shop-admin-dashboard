@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { motion } from "framer-motion"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -83,6 +84,26 @@ export default function SettingsPage() {
                 </Button>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      <motion.div
+        initial={{ y: 10, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.35, duration: 0.3 }}
+      >
+        <Card className="border-border/40 shadow-soft">
+          <CardHeader>
+            <CardTitle className="font-serif">Shop promotions</CardTitle>
+            <CardDescription>
+              Banners with image, title, and optional link to a menu product — shown on the storefront.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild variant="default" className="gap-2">
+              <Link href="/settings/promotions">Manage promotions</Link>
+            </Button>
           </CardContent>
         </Card>
       </motion.div>

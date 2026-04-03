@@ -2,7 +2,31 @@
  * TypeScript types for Admin Dashboard
  */
 
-type OrderStatus = "PENDING" | "CONFIRMED" | "PREPARING" | "READY" | "COMPLETED" | "CANCELLED"
+/** Matches `orders.status` in Supabase and PATCH `/api/orders/[id]` (`delivered` is normalized away). */
+export type OrderStatus =
+  | "pending"
+  | "confirmed"
+  | "preparing"
+  | "ready"
+  | "completed"
+  | "cancelled"
+
+export const ORDER_STATUS_OPTIONS: OrderStatus[] = [
+  "pending",
+  "confirmed",
+  "preparing",
+  "ready",
+  "completed",
+  "cancelled",
+]
+
+/** Maps legacy `delivered` to `completed` for UI and typing. */
+export function normalizeOrderStatus(raw: unknown): OrderStatus {
+  const x = String(raw ?? "pending").toLowerCase()
+  if (x === "delivered") return "completed"
+  if (ORDER_STATUS_OPTIONS.includes(x as OrderStatus)) return x as OrderStatus
+  return "pending"
+}
 
 export interface AdminSession {
   user: {
@@ -77,7 +101,7 @@ export interface OrderWithItems {
     id: string
     quantity: number
     price: number
-    customizations?: string
+    customizations?: string | Record<string, unknown>
     product: {
       id: string
       name: string
@@ -93,3 +117,5 @@ export interface DashboardStats {
   pendingOrders: number
   lowStockProducts: number
 }
+
+export type DashboardTimeRange = "daily" | "weekly" | "monthly"

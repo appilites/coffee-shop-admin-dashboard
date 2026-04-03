@@ -235,7 +235,7 @@ export default function CategoriesPage() {
               Add Category
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px] bg-white">
+          <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>Add Parent Category</DialogTitle>
               <DialogDescription>
@@ -531,7 +531,7 @@ export default function CategoriesPage() {
 
       {/* Edit Modal */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-[500px] bg-white">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Edit Category</DialogTitle>
             <DialogDescription>Update category information.</DialogDescription>
@@ -551,7 +551,7 @@ export default function CategoriesPage() {
         setIsDeleteDialogOpen(open)
         if (!open) setCategoryToDelete(null)
       }}>
-        <AlertDialogContent className="bg-white">
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>

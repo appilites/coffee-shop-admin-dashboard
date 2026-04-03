@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Package, ShoppingCart, DollarSign, TrendingUp, Clock, Loader2, RefreshCw } from "lucide-react"
@@ -12,62 +12,66 @@ import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { dashboardService } from "@/lib/database"
 import { subscribeToAllChanges } from "@/lib/sync"
-import type { DashboardStats } from "@/lib/types"
+import type { DashboardStats, DashboardTimeRange } from "@/lib/types"
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [timeRange, setTimeRange] = useState<DashboardTimeRange>("monthly")
 
-  useEffect(() => {
-    loadDashboardData()
-    
-    // Set up real-time subscriptions
-    const cleanup = subscribeToAllChanges({
-      onOrderChange: (payload) => {
-        console.log('New order detected, refreshing stats...')
-        loadDashboardData()
-        toast.success('New order received!')
-      },
-      onProductChange: (payload) => {
-        console.log('Product updated, refreshing stats...')
-        loadDashboardData()
-      },
-      onCategoryChange: (payload) => {
-        console.log('Category updated, refreshing stats...')
-        loadDashboardData()
-      }
-    })
-
-    // Set up periodic updates every 2 minutes as backup
-    const interval = setInterval(loadDashboardData, 120000)
-    
-    return () => {
-      cleanup()
-      clearInterval(interval)
-    }
-  }, [])
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
-      console.log('🔄 Loading dashboard data...')
-      const dashboardStats = await dashboardService.getStats()
-      console.log('📊 Dashboard stats loaded:', dashboardStats)
+      console.log("🔄 Loading dashboard data...")
+      const dashboardStats = await dashboardService.getStats(timeRange)
+      console.log("📊 Dashboard stats loaded:", dashboardStats)
       setStats(dashboardStats)
     } catch (error) {
-      console.error('❌ Error loading dashboard data:', error)
-      toast.error('Failed to load dashboard data')
+      console.error("❌ Error loading dashboard data:", error)
+      toast.error("Failed to load dashboard data")
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }
+  }, [timeRange])
+
+  useEffect(() => {
+    loadDashboardData()
+
+    // Set up real-time subscriptions
+    const cleanup = subscribeToAllChanges({
+      onOrderChange: (payload) => {
+        console.log("New order detected, refreshing stats...")
+        loadDashboardData()
+        toast.success("New order received!")
+      },
+      onProductChange: (payload) => {
+        console.log("Product updated, refreshing stats...")
+        loadDashboardData()
+      },
+      onCategoryChange: (payload) => {
+        console.log("Category updated, refreshing stats...")
+        loadDashboardData()
+      },
+    })
+
+    // Set up periodic updates every 2 minutes as backup
+    const interval = setInterval(loadDashboardData, 120000)
+
+    return () => {
+      cleanup()
+      clearInterval(interval)
+    }
+  }, [loadDashboardData])
 
   const handleRefresh = async () => {
     setRefreshing(true)
     await loadDashboardData()
     toast.success('Dashboard data refreshed')
   }
+
+  const periodLabel =
+    timeRange === "daily" ? "Today" : timeRange === "weekly" ? "Last 7 days" : "This month"
 
   const statCards = [
     {
@@ -81,7 +85,7 @@ export default function DashboardPage() {
     {
       title: "Total Orders",
       value: stats?.totalOrders || 0,
-      description: "Customer orders received",
+      description: `Orders (${periodLabel})`,
       icon: ShoppingCart,
       color: "text-green-600",
       bgColor: "bg-green-50",
@@ -89,7 +93,7 @@ export default function DashboardPage() {
     {
       title: "Total Revenue",
       value: formatCurrency(stats?.totalRevenue || 0),
-      description: "Revenue from orders",
+      description: `Revenue (${periodLabel})`,
       icon: DollarSign,
       color: "text-amber-600",
       bgColor: "bg-amber-50",
@@ -97,7 +101,7 @@ export default function DashboardPage() {
     {
       title: "Pending Orders",
       value: stats?.pendingOrders || 0,
-      description: "Orders awaiting processing",
+      description: `Pending (${periodLabel})`,
       icon: Clock,
       color: "text-orange-600",
       bgColor: "bg-orange-50",
@@ -146,6 +150,34 @@ export default function DashboardPage() {
           </Button>
         </div>
       </motion.div>
+
+      {/* Stats Range Filter */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Range:</span>
+          <Button
+            size="sm"
+            variant={timeRange === "daily" ? "default" : "outline"}
+            onClick={() => setTimeRange("daily")}
+          >
+            Daily
+          </Button>
+          <Button
+            size="sm"
+            variant={timeRange === "weekly" ? "default" : "outline"}
+            onClick={() => setTimeRange("weekly")}
+          >
+            Weekly
+          </Button>
+          <Button
+            size="sm"
+            variant={timeRange === "monthly" ? "default" : "outline"}
+            onClick={() => setTimeRange("monthly")}
+          >
+            Monthly
+          </Button>
+        </div>
+      </div>
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

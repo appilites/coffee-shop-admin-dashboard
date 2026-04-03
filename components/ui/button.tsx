@@ -4,21 +4,23 @@ import { cva, type VariantProps } from 'class-variance-authority'
 
 import { cn } from '@/lib/utils'
 
+const brandBtn =
+  'border-2 border-[#5d3b2a] bg-white text-[#5d3b2a] shadow-sm hover:bg-[#5d3b2a] hover:text-white hover:shadow-md active:scale-[0.98]'
+
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all duration-150 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[#5d3b2a]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-white aria-invalid:ring-destructive/30 aria-invalid:border-destructive",
   {
     variants: {
       variant: {
-        default: 'border-2 border-[#5d3b2a] bg-white text-[#5d3b2a] hover:bg-[#5d3b2a] hover:text-white',
+        default: brandBtn,
         destructive:
-          'bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60',
-        outline:
-          'border-2 border-[#5d3b2a] bg-white text-[#5d3b2a] hover:bg-[#5d3b2a] hover:text-white dark:bg-input/30 dark:border-input dark:hover:bg-input/50',
+          'border-2 border-destructive bg-white text-destructive hover:bg-destructive hover:text-white shadow-sm hover:shadow-md',
+        outline: brandBtn,
         secondary:
-          'bg-secondary text-secondary-foreground hover:bg-secondary/80',
+          'border-2 border-border bg-white text-foreground hover:bg-muted hover:border-border shadow-sm',
         ghost:
-          'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
-        link: 'text-[#5d3b2a] underline-offset-4 hover:underline',
+          'border-2 border-transparent bg-transparent text-[#5d3b2a] hover:bg-[#5d3b2a]/10 hover:border-[#5d3b2a]/20',
+        link: 'border-0 border-transparent bg-transparent text-[#5d3b2a] shadow-none underline-offset-4 hover:underline hover:bg-transparent',
       },
       size: {
         default: 'h-9 px-4 py-2 has-[>svg]:px-3',

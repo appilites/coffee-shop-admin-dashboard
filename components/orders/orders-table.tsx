@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react"
 import {
   Table,
   TableBody,
@@ -78,6 +79,36 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
     }, 500)
   }
 
+  const goToOrderDetails = (orderId: string) => {
+    router.push(`/orders/${orderId}`)
+  }
+
+  const isClickFromInteractiveChild = (e: ReactMouseEvent<HTMLTableRowElement>) => {
+    const target = e.target as HTMLElement | null
+    if (!target) return false
+
+    // If user clicked inside controls (buttons/links/select dropdown), don't trigger row navigation.
+    return Boolean(
+      target.closest(
+        'button, a, input, select, textarea, [role="button"], [data-slot="select-trigger"], [data-slot="select-item"], [data-slot="select-content"]',
+      ),
+    )
+  }
+
+  const handleRowClick = (e: ReactMouseEvent<HTMLTableRowElement>, orderId: string) => {
+    if (isClickFromInteractiveChild(e)) return
+    e.preventDefault()
+    goToOrderDetails(orderId)
+  }
+
+  const handleRowKeyDown = (e: ReactKeyboardEvent<HTMLTableRowElement>, orderId: string) => {
+    // Only trigger when the row itself is focused (not when a child control is focused)
+    if (e.currentTarget !== e.target) return
+    if (e.key !== "Enter" && e.key !== " ") return
+    e.preventDefault()
+    goToOrderDetails(orderId)
+  }
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -102,7 +133,14 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
             </TableRow>
           ) : (
             orders.map((order) => (
-              <TableRow key={order.id}>
+              <TableRow
+                key={order.id}
+                className="cursor-pointer hover:bg-muted/50"
+                role="button"
+                tabIndex={0}
+                onClick={(e) => handleRowClick(e, order.id)}
+                onKeyDown={(e) => handleRowKeyDown(e, order.id)}
+              >
                 <TableCell className="font-medium">{order.orderNumber}</TableCell>
                 <TableCell>
                   <div>
@@ -151,7 +189,10 @@ export function OrdersTable({ orders: initialOrders }: OrdersTableProps) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => router.push(`/orders/${order.id}`)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      goToOrderDetails(order.id)
+                    }}
                   >
                     View
                   </Button>

@@ -54,10 +54,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate unique filename
+    // Generate unique filename (optional subfolder: formData "folder" e.g. "promotions")
     const ext = file.name.split(".").pop()?.toLowerCase() || "jpg"
     const uniqueName = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`
-    const filePath = `products/${uniqueName}`
+    const rawFolder = (formData.get("folder") as string) || "products"
+    const safeFolder = rawFolder.replace(/[^a-z0-9-_]/gi, "").slice(0, 48) || "products"
+    const filePath = `${safeFolder}/${uniqueName}`
 
     // Convert File to ArrayBuffer then to Buffer
     const arrayBuffer = await file.arrayBuffer()

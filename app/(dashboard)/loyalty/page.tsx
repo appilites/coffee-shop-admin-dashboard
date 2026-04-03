@@ -412,7 +412,7 @@ export default function LoyaltyPage() {
 
       {/* Add Reward Dialog */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent className="sm:max-w-[480px] bg-white">
+        <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
             <DialogTitle className="font-serif flex items-center gap-2">
               <Gift className="h-5 w-5 text-primary" /> Add Loyalty Reward
@@ -524,7 +524,7 @@ export default function LoyaltyPage() {
 
       {/* Edit Reward Dialog */}
       <Dialog open={!!editProduct} onOpenChange={(o) => { if (!o) setEditProduct(null) }}>
-        <DialogContent className="sm:max-w-[420px] bg-white">
+        <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
             <DialogTitle className="font-serif flex items-center gap-2">
               <Edit className="h-5 w-5 text-primary" /> Edit Reward Points
@@ -564,7 +564,7 @@ export default function LoyaltyPage() {
 
       {/* Remove Confirm */}
       <AlertDialog open={!!removeId} onOpenChange={(o) => { if (!o) setRemoveId(null) }}>
-        <AlertDialogContent className="bg-white">
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Loyalty Reward?</AlertDialogTitle>
             <AlertDialogDescription>

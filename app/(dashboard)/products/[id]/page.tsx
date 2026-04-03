@@ -442,7 +442,7 @@ export default function ProductDetailsPage() {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="bg-white">
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Product?</AlertDialogTitle>
             <AlertDialogDescription>

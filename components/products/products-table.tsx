@@ -207,7 +207,7 @@ export function ProductsTable({ products: initialProducts, onProductDeleted }: P
       </div>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="bg-white border-border/40">
+        <AlertDialogContent className="border-border/40">
           <AlertDialogHeader>
             <AlertDialogTitle className="font-serif">Delete Product?</AlertDialogTitle>
             <AlertDialogDescription>
