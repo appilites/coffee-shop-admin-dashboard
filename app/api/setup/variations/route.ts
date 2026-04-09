@@ -16,6 +16,8 @@ export async function POST() {
         option_type VARCHAR(50) NOT NULL CHECK (option_type IN ('single', 'multiple')),
         display_order INTEGER DEFAULT 0,
         is_required BOOLEAN DEFAULT false,
+        max_included_selections INTEGER NULL,
+        extra_selection_price DECIMAL(10,2) NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
@@ -78,6 +80,14 @@ export async function POST() {
     if (indexError) {
       console.error('Error creating indexes:', indexError)
       // Don't fail for index errors
+    }
+
+    for (const sql of [
+      `ALTER TABLE customization_options ADD COLUMN IF NOT EXISTS max_included_selections INTEGER NULL;`,
+      `ALTER TABLE customization_options ADD COLUMN IF NOT EXISTS extra_selection_price NUMERIC(10, 2) NULL;`,
+    ]) {
+      const { error: alterErr } = await supabase.rpc("exec_sql", { sql })
+      if (alterErr) console.warn("alter customization_options pricing columns:", alterErr)
     }
 
     console.log('✅ Variation tables created successfully')

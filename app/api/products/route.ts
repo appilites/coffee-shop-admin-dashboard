@@ -6,35 +6,8 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient, getSupabaseServerClient } from "@/lib/supabase-server"
-
-// Helper to compute price range from variations
-function computePriceData(basePrice: number, variations: any[] | null | undefined) {
-  const safeVariations = Array.isArray(variations) ? variations : []
-  let minPrice = basePrice
-  let maxPrice = basePrice
-
-  for (const variation of safeVariations) {
-    const opts = Array.isArray(variation.options) ? variation.options : []
-    if (variation.type === "radio") {
-      const prices = opts.map((o: any) => Number(o.priceModifier ?? 0))
-      if (prices.length) {
-        minPrice += Math.min(...prices)
-        maxPrice += Math.max(...prices)
-      }
-    } else {
-      const sum = opts.reduce(
-        (acc: number, o: any) => acc + Number(o.priceModifier ?? 0),
-        0
-      )
-      maxPrice += sum
-    }
-  }
-
-  return {
-    calculatedTotalPrice: maxPrice,
-    priceRange: { minPrice, maxPrice },
-  }
-}
+import { computePriceData } from "@/lib/compute-variation-prices"
+import { syncVariationsToCustomizationTables } from "@/lib/sync-variations-to-customization-tables"
 
 // GET — List all products (variations stored in menu_items.variations)
 export async function GET() {
@@ -167,6 +140,11 @@ export async function POST(request: NextRequest) {
     console.log('✅ Product created successfully:', product)
 
     const variations = Array.isArray(product.variations) ? product.variations : []
+    const sync = await syncVariationsToCustomizationTables(supabase, product.id, variations)
+    if (!sync.ok) {
+      console.warn("⚠️ customization_options sync skipped or failed:", sync.error)
+    }
+
     const { calculatedTotalPrice, priceRange } = computePriceData(
       product.base_price,
       variations

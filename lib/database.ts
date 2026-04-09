@@ -131,13 +131,30 @@ export const productService = {
         try {
           for (const variation of variations) {
             console.log('🔍 Creating variation:', variation.title)
+            const isCb = variation.type === "checkbox"
+            const maxIn =
+              isCb &&
+              variation.maxIncludedSelections != null &&
+              Number.isFinite(Number(variation.maxIncludedSelections))
+                ? Math.max(0, Math.floor(Number(variation.maxIncludedSelections)))
+                : null
+            const extraPri =
+              isCb &&
+              variation.extraSelectionPrice != null &&
+              Number.isFinite(Number(variation.extraSelectionPrice)) &&
+              Number(variation.extraSelectionPrice) > 0
+                ? Number(variation.extraSelectionPrice)
+                : null
+
             const { data: optionData, error: optionError } = await supabase
               .from('customization_options')
               .insert({
                 menu_item_id: data.id,
                 option_name: variation.title,
                 option_type: variation.type === 'radio' ? 'single' : 'multiple',
-                is_required: false
+                is_required: false,
+                max_included_selections: maxIn,
+                extra_selection_price: extraPri,
               })
               .select()
               .single()

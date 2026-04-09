@@ -24,6 +24,7 @@ import { ProductImage } from "@/components/ui/product-image"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { computePriceData } from "@/lib/compute-variation-prices"
 
 interface Category {
   id: string
@@ -71,6 +72,8 @@ interface Variation {
   type: "checkbox" | "radio"
   required: boolean
   options: VariationOption[]
+  maxIncludedSelections?: number
+  extraSelectionPrice?: number
 }
 
 export function ProductForm({ product, categories }: ProductFormProps) {
@@ -79,7 +82,15 @@ export function ProductForm({ product, categories }: ProductFormProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(product?.imageUrl || null)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [variations, setVariations] = useState<Variation[]>(
-    (product?.variations || []).map(v => ({ ...v, required: (v as any).required ?? true }))
+    (product?.variations || []).map((v) => {
+      const x = v as Variation & { maxIncludedSelections?: number; extraSelectionPrice?: number }
+      return {
+        ...v,
+        required: (v as { required?: boolean }).required ?? true,
+        maxIncludedSelections: x.maxIncludedSelections,
+        extraSelectionPrice: x.extraSelectionPrice,
+      }
+    })
   )
   // Raw string display values for price modifier inputs (allows clearing "0" with backspace)
   const [priceInputValues, setPriceInputValues] = useState<Record<string, string>>({})
@@ -126,47 +137,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
     }
   }, [product?.id, product?.imageUrl, setValue])
 
-  // Calculate total price including all variation options
-  const calculateTotalPrice = () => {
-    const basePrice = price || 0
-    let totalVariationCost = 0
-    
-    variations.forEach(variation => {
-      variation.options.forEach(option => {
-        totalVariationCost += option.priceModifier || 0
-      })
-    })
-    
-    return basePrice + totalVariationCost
-  }
-
-  // Calculate minimum and maximum possible prices for customers
-  const calculatePriceRange = () => {
-    const basePrice = price || 0
-    let minPrice = basePrice
-    let maxPrice = basePrice
-    
-    variations.forEach(variation => {
-      if (variation.type === 'radio') {
-        // For radio buttons, customer picks one option
-        const prices = variation.options.map(opt => opt.priceModifier || 0)
-        const minVariationPrice = Math.min(...prices)
-        const maxVariationPrice = Math.max(...prices)
-        minPrice += minVariationPrice
-        maxPrice += maxVariationPrice
-      } else {
-        // For checkboxes, customer can pick multiple options
-        const totalVariationPrice = variation.options.reduce((sum, opt) => sum + (opt.priceModifier || 0), 0)
-        maxPrice += totalVariationPrice
-        // minPrice stays the same (customer can choose none)
-      }
-    })
-    
-    return { minPrice, maxPrice }
-  }
-
-  const totalPrice = calculateTotalPrice()
-  const priceRange = calculatePriceRange()
+  const { calculatedTotalPrice: totalPrice, priceRange } = computePriceData(price || 0, variations)
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -278,17 +249,40 @@ export function ProductForm({ product, categories }: ProductFormProps) {
     try {
       // Keep only complete variations/options so partial UI edits don't block product updates.
       const sanitizedVariations = (variations || [])
-        .map((variation) => ({
-          ...variation,
-          title: variation.title?.trim() || "",
-          options: (variation.options || [])
-            .map((option) => ({
-              ...option,
-              label: option.label?.trim() || "",
-              priceModifier: Number(option.priceModifier || 0),
-            }))
-            .filter((option) => option.label.length > 0),
-        }))
+        .map((variation) => {
+          const isCheckbox = variation.type === "checkbox"
+          let maxIncluded: number | undefined
+          if (isCheckbox && variation.maxIncludedSelections != null) {
+            const n = Number(variation.maxIncludedSelections)
+            if (Number.isFinite(n) && n >= 0) maxIncluded = Math.min(99, Math.floor(n))
+          }
+          let extra = 0
+          if (isCheckbox && variation.extraSelectionPrice != null) {
+            const n = Number(variation.extraSelectionPrice)
+            if (Number.isFinite(n) && n >= 0) extra = Math.min(999, n)
+          }
+
+          const base: Record<string, unknown> = {
+            id: variation.id,
+            title: variation.title?.trim() || "",
+            type: variation.type,
+            required: variation.required ?? true,
+            options: (variation.options || [])
+              .map((option) => ({
+                ...option,
+                label: option.label?.trim() || "",
+                priceModifier: Number(option.priceModifier || 0),
+              }))
+              .filter((option) => option.label.length > 0),
+          }
+
+          if (isCheckbox) {
+            if (maxIncluded !== undefined) base.maxIncludedSelections = maxIncluded
+            if (extra > 0) base.extraSelectionPrice = extra
+          }
+
+          return base as unknown as Variation
+        })
         .filter((variation) => variation.title.length > 0 && variation.options.length > 0)
 
       // Include variations and calculated prices in the form data
@@ -741,9 +735,21 @@ export function ProductForm({ product, categories }: ProductFormProps) {
                             <Label className="text-xs">Option Type</Label>
                             <Select
                               value={variation.type}
-                              onValueChange={(value: "checkbox" | "radio") =>
-                                updateVariation(variation.id, "type", value)
-                              }
+                              onValueChange={(value: "checkbox" | "radio") => {
+                                const next = variations.map((v) =>
+                                  v.id === variation.id
+                                    ? {
+                                        ...v,
+                                        type: value,
+                                        ...(value === "radio"
+                                          ? { maxIncludedSelections: undefined, extraSelectionPrice: undefined }
+                                          : {}),
+                                      }
+                                    : v
+                                )
+                                setVariations(next)
+                                setValue("variations", next)
+                              }}
                               disabled={isSubmitting}
                             >
                               <SelectTrigger className="bg-white border-border/60 h-8 text-sm">
@@ -791,6 +797,68 @@ export function ProductForm({ product, categories }: ProductFormProps) {
                           }
                         </Label>
                       </div>
+
+                      {variation.type === "checkbox" && (
+                        <div className="grid gap-3 md:grid-cols-2 pt-1 border border-border/30 rounded-lg p-3 bg-muted/20">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Included selections (no extra fee)</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={99}
+                              step={1}
+                              placeholder="e.g. 3"
+                              value={variation.maxIncludedSelections ?? ""}
+                              onChange={(e) => {
+                                const raw = e.target.value
+                                const updated = variations.map((v) =>
+                                  v.id === variation.id
+                                    ? {
+                                        ...v,
+                                        maxIncludedSelections:
+                                          raw === "" ? undefined : Math.max(0, Math.min(99, parseInt(raw, 10) || 0)),
+                                      }
+                                    : v
+                                )
+                                setVariations(updated)
+                                setValue("variations", updated)
+                              }}
+                              disabled={isSubmitting}
+                              className="h-8 text-sm"
+                            />
+                            <p className="text-[10px] text-muted-foreground leading-snug">
+                              First N choices use each option’s price only; each further choice also adds the extra fee below.
+                            </p>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Extra per selection beyond included ($)</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={999}
+                              step="0.01"
+                              placeholder="0.00"
+                              value={variation.extraSelectionPrice ?? ""}
+                              onChange={(e) => {
+                                const raw = e.target.value
+                                const updated = variations.map((v) =>
+                                  v.id === variation.id
+                                    ? {
+                                        ...v,
+                                        extraSelectionPrice:
+                                          raw === "" ? undefined : Math.max(0, Math.min(999, parseFloat(raw) || 0)),
+                                      }
+                                    : v
+                                )
+                                setVariations(updated)
+                                setValue("variations", updated)
+                              }}
+                              disabled={isSubmitting}
+                              className="h-8 text-sm"
+                            />
+                          </div>
+                        </div>
+                      )}
 
                       <Separator className="my-2" />
 

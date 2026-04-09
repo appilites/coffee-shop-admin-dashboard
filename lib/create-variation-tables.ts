@@ -20,6 +20,8 @@ export async function createVariationTables() {
           option_type VARCHAR(50) NOT NULL CHECK (option_type IN ('single', 'multiple')),
           display_order INTEGER DEFAULT 0,
           is_required BOOLEAN DEFAULT false,
+          max_included_selections INTEGER NULL,
+          extra_selection_price DECIMAL(10,2) NULL,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );

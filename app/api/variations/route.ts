@@ -5,35 +5,7 @@
 
 import { NextResponse } from "next/server"
 import { getSupabaseAdminClient } from "@/lib/supabase-server"
-
-// Helper to compute price range from variations
-function computePriceData(basePrice: number, variations: any[] | null | undefined) {
-  const safeVariations = Array.isArray(variations) ? variations : []
-  let minPrice = basePrice
-  let maxPrice = basePrice
-
-  for (const variation of safeVariations) {
-    const opts = Array.isArray(variation.options) ? variation.options : []
-    if (variation.type === "radio") {
-      const prices = opts.map((o: any) => Number(o.priceModifier ?? 0))
-      if (prices.length) {
-        minPrice += Math.min(...prices)
-        maxPrice += Math.max(...prices)
-      }
-    } else {
-      const sum = opts.reduce(
-        (acc: number, o: any) => acc + Number(o.priceModifier ?? 0),
-        0
-      )
-      maxPrice += sum
-    }
-  }
-
-  return {
-    calculatedTotalPrice: maxPrice,
-    priceRange: { minPrice, maxPrice },
-  }
-}
+import { computePriceData } from "@/lib/compute-variation-prices"
 
 // GET - Fetch all products with their variations (from JSONB column)
 export async function GET() {

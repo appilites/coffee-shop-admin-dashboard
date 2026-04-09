@@ -18,6 +18,9 @@ const variationSchema = z.object({
   type: z.enum(["checkbox", "radio"]),
   required: z.boolean().default(true),
   options: z.array(variationOptionSchema).optional().default([]),
+  /** Checkbox: first N selections do not add extraSelectionPrice; beyond N, each adds this fee (plus option modifiers). */
+  maxIncludedSelections: z.number().int().min(0).max(99).optional(),
+  extraSelectionPrice: z.number().min(0).max(999).optional(),
 })
 
 // Product validation schema

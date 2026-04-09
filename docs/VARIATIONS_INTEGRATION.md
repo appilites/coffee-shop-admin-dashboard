@@ -32,6 +32,8 @@ Each product returned from `/api/products` or `/api/products/:id` contains a `va
 | `type` | `"radio"` \| `"checkbox"` | How the customer selects options |
 | `required` | `boolean` | If `true`, customer **must** select at least one option before adding to cart |
 | `options` | `VariationOption[]` | List of selectable options |
+| `maxIncludedSelections` | `number` (optional) | **Checkbox only.** First N selected options count only their `priceModifier`; see `extraSelectionPrice`. |
+| `extraSelectionPrice` | `number` (optional) | **Checkbox only.** Flat amount added for each selected option **beyond** the first `maxIncludedSelections` (same currency as `base_price`). |
 
 ### VariationOption Object
 
@@ -97,11 +99,14 @@ Each product returned from `/api/products` or `/api/products/:id` contains a `va
 - Customer picks **zero or more** options (like checkboxes)
 - Multiple options can be active at the same time
 - If `required: true` → at least one option must be checked
-- Price: **sum** of all selected options' `priceModifier` values is added to `base_price`
+- Price: **sum** of each selected option’s `priceModifier`, **plus** (when set) `extraSelectionPrice` once for every selection **after** the first `maxIncludedSelections` — using the **order** the customer picked (first tap = index 0).
+- If `maxIncludedSelections` / `extraSelectionPrice` are omitted, behavior is the simple sum of modifiers only.
 
 ---
 
 ## Price Calculation
+
+The admin repo includes a ready helper: copy **`lib/calculate-variation-selection-price.ts`** into your shop (or import if share a package) and use `calculateLineTotalFromSelections(basePrice, variations, selectedOptions)`.
 
 ```ts
 function calculateOrderItemPrice(
@@ -110,7 +115,7 @@ function calculateOrderItemPrice(
   selectedOptions: Record<string, string | string[]>
   // selectedOptions shape:
   //   radio    → { [variationId]: optionId }
-  //   checkbox → { [variationId]: optionId[] }
+  //   checkbox → { [variationId]: optionId[] }  // preserve pick order for extra-fee rules
 ): number {
   let total = basePrice
 
@@ -122,18 +127,30 @@ function calculateOrderItemPrice(
       const chosen = variation.options.find(o => o.id === selection)
       if (chosen) total += chosen.priceModifier
     } else {
-      // checkbox — sum all checked options
       const chosenIds = selection as string[]
-      for (const optId of chosenIds) {
+      const maxN = variation.maxIncludedSelections
+      const extra = variation.extraSelectionPrice ?? 0
+      chosenIds.forEach((optId, index) => {
         const opt = variation.options.find(o => o.id === optId)
         if (opt) total += opt.priceModifier
-      }
+        if (
+          typeof maxN === "number" &&
+          extra > 0 &&
+          index >= maxN
+        ) {
+          total += extra
+        }
+      })
     }
   }
 
   return Math.round(total * 100) / 100 // round to 2 decimal places
 }
 ```
+
+### Database mirror (`customization_options`)
+
+When products are saved via the admin API, `menu_items.variations` (JSONB) is synced into `customization_options` / `customization_choices`. Checkbox extras are stored as `max_included_selections` and `extra_selection_price` on each option row (run **`docs/sql/customization_options_pricing.sql`** or `POST /api/setup/add-customization-option-pricing-columns` once). The shop should still compute cart totals from selections using the formula above; the JSON on `menu_items` is the source of truth for IDs and labels.
 
 ### Price Range (for display before selection)
 

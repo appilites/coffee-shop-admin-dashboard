@@ -47,7 +47,12 @@ export interface Variation {
   id: string
   title: string
   type: "checkbox" | "radio"
+  required?: boolean
   options: VariationOption[]
+  /** Checkbox: number of selections before `extraSelectionPrice` applies to each further selection. */
+  maxIncludedSelections?: number
+  /** Checkbox: flat surcharge per option selected beyond `maxIncludedSelections` (still adds each option’s priceModifier). */
+  extraSelectionPrice?: number
 }
 
 export interface ProductFormData {
