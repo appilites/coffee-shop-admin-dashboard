@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
-import { Loader2, Edit, Trash2, Eye, Settings, RefreshCw } from "lucide-react"
+import { Loader2, Edit, Trash2, Eye, Settings, RefreshCw, Download, Upload, CheckCircle, AlertCircle } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 import Link from "next/link"
 import {
@@ -61,12 +61,53 @@ interface VariationsData {
   productsWithoutVariations: ProductWithVariations[]
 }
 
+interface AddonData {
+  targetCategories: Array<{ id: string; name: string }>
+  totalProducts: number
+  totalUniqueAddons: number
+  uniqueAddons: string[]
+  addonCategories: {
+    sizes: string[]
+    milkOptions: string[]
+    sweeteners: string[]
+    extras: string[]
+    other: string[]
+  }
+  summary: {
+    sizes: number
+    milkOptions: number
+    sweeteners: number
+    extras: number
+    other: number
+  }
+}
+
+interface ApplyResult {
+  targetCategories: Array<{ id: string; name: string }>
+  totalProducts: number
+  updateResults: {
+    successful: number
+    failed: number
+  }
+  summary: {
+    variationsCreated: number
+    totalOptions: number
+  }
+}
+
 export default function VariationsPage() {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<VariationsData | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [productToRemoveVariations, setProductToRemoveVariations] = useState<string | null>(null)
   const [removing, setRemoving] = useState(false)
+  
+  // Addon extraction states
+  const [extractingAddons, setExtractingAddons] = useState(false)
+  const [applyingAddons, setApplyingAddons] = useState(false)
+  const [addonData, setAddonData] = useState<AddonData | null>(null)
+  const [applyResult, setApplyResult] = useState<ApplyResult | null>(null)
+  const [confirmApplyOpen, setConfirmApplyOpen] = useState(false)
 
   useEffect(() => {
     fetchVariations()
@@ -116,6 +157,116 @@ export default function VariationsPage() {
     }
   }
 
+  const extractAddons = async () => {
+    try {
+      setExtractingAddons(true)
+      const response = await fetch('/api/extract-addons')
+      
+      if (!response.ok) {
+        throw new Error('Failed to extract addons')
+      }
+
+      const result = await response.json()
+      if (result.success) {
+        setAddonData(result.data)
+        toast.success(`Extracted ${result.data.totalUniqueAddons} unique addons from ${result.data.totalProducts} products`)
+      } else {
+        throw new Error(result.error || 'Failed to extract addons')
+      }
+    } catch (error) {
+      console.error('Error extracting addons:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to extract addons')
+    } finally {
+      setExtractingAddons(false)
+    }
+  }
+
+  const applyUnifiedAddons = async () => {
+    if (!addonData) return
+
+    try {
+      setApplyingAddons(true)
+      const response = await fetch('/api/extract-addons', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          unifiedAddons: addonData.uniqueAddons,
+          applyToCategories: addonData.targetCategories.map(c => c.name)
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to apply unified addons')
+      }
+
+      const result = await response.json()
+      if (result.success) {
+        setApplyResult(result.data)
+        toast.success(`Applied unified addons to ${result.data.updateResults.successful} products successfully`)
+        setConfirmApplyOpen(false)
+        fetchVariations() // Refresh variations data
+      } else {
+        throw new Error(result.error || 'Failed to apply unified addons')
+      }
+    } catch (error) {
+      console.error('Error applying unified addons:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to apply unified addons')
+    } finally {
+      setApplyingAddons(false)
+    }
+  }
+
+  const downloadMDFile = () => {
+    if (!addonData) return
+
+    const mdContent = `# Coffee Shop Addons List
+
+## Categories Included
+${addonData.targetCategories.map(cat => `- ${cat.name}`).join('\n')}
+
+## Total Statistics
+- **Total Products**: ${addonData.totalProducts}
+- **Unique Addons**: ${addonData.totalUniqueAddons}
+
+## Addon Categories
+
+### Sizes (${addonData.addonCategories.sizes.length})
+${addonData.addonCategories.sizes.map(addon => `- ${addon}`).join('\n')}
+
+### Milk Options (${addonData.addonCategories.milkOptions.length})
+${addonData.addonCategories.milkOptions.map(addon => `- ${addon}`).join('\n')}
+
+### Sweeteners (${addonData.addonCategories.sweeteners.length})
+${addonData.addonCategories.sweeteners.map(addon => `- ${addon}`).join('\n')}
+
+### Extras (${addonData.addonCategories.extras.length})
+${addonData.addonCategories.extras.map(addon => `- ${addon}`).join('\n')}
+
+### Other Options (${addonData.addonCategories.other.length})
+${addonData.addonCategories.other.map(addon => `- ${addon}`).join('\n')}
+
+## All Addons (Alphabetical)
+${addonData.uniqueAddons.map(addon => `- ${addon}`).join('\n')}
+
+---
+*Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}*
+`
+
+    const blob = new Blob([mdContent], { type: 'text/markdown' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'coffee-shop-addons.md'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    
+    toast.success('Addons list downloaded as MD file')
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -153,6 +304,28 @@ export default function VariationsPage() {
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
+          <Button onClick={extractAddons} variant="outline" disabled={extractingAddons} className="gap-2">
+            <Download className={`h-4 w-4 ${extractingAddons ? 'animate-spin' : ''}`} />
+            {extractingAddons ? 'Extracting...' : 'Extract Addons'}
+          </Button>
+          {addonData && (
+            <>
+              <Button onClick={downloadMDFile} variant="outline" className="gap-2">
+                <Download className="h-4 w-4" />
+                Download MD
+              </Button>
+              <Button onClick={() => setConfirmApplyOpen(true)} disabled={applyingAddons} className="gap-2">
+                <Upload className={`h-4 w-4 ${applyingAddons ? 'animate-spin' : ''}`} />
+                {applyingAddons ? 'Applying...' : 'Apply Unified'}
+              </Button>
+            </>
+          )}
+          <Link href="/bulk-addons">
+            <Button variant="outline">
+              <Settings className="h-4 w-4 mr-2" />
+              Bulk Addons
+            </Button>
+          </Link>
           <Link href="/setup-variations">
             <Button>
               <Settings className="h-4 w-4 mr-2" />
@@ -197,6 +370,112 @@ export default function VariationsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Addon Extraction Results */}
+      {addonData && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              Extracted Addons from Target Categories
+            </CardTitle>
+            <CardDescription>
+              Addons extracted from: {addonData.targetCategories.map(c => c.name).join(', ')}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-5 mb-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">{addonData.totalUniqueAddons}</div>
+                <div className="text-sm text-muted-foreground">Unique Addons</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">{addonData.summary.sizes}</div>
+                <div className="text-sm text-muted-foreground">Sizes</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-600">{addonData.summary.milkOptions}</div>
+                <div className="text-sm text-muted-foreground">Milk Options</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-orange-600">{addonData.summary.sweeteners}</div>
+                <div className="text-sm text-muted-foreground">Sweeteners</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-600">{addonData.summary.extras}</div>
+                <div className="text-sm text-muted-foreground">Extras</div>
+              </div>
+            </div>
+            
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {Object.entries(addonData.addonCategories).map(([category, addons]) => (
+                <div key={category} className="p-3 border rounded-lg">
+                  <div className="font-medium mb-2 capitalize">
+                    {category.replace(/([A-Z])/g, ' $1').trim()} ({addons.length})
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {addons.slice(0, 5).map((addon, index) => (
+                      <Badge key={index} variant="outline" className="text-xs">
+                        {addon}
+                      </Badge>
+                    ))}
+                    {addons.length > 5 && (
+                      <Badge variant="secondary" className="text-xs">
+                        +{addons.length - 5} more
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Apply Results */}
+      {applyResult && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              Unified Addons Applied Successfully
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3 mb-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {applyResult.updateResults.successful}
+                </div>
+                <div className="text-sm text-muted-foreground">Products Updated</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {applyResult.summary.variationsCreated}
+                </div>
+                <div className="text-sm text-muted-foreground">Variations Created</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-600">
+                  {applyResult.summary.totalOptions}
+                </div>
+                <div className="text-sm text-muted-foreground">Total Options</div>
+              </div>
+            </div>
+            
+            {applyResult.updateResults.failed > 0 && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  <span className="text-sm font-medium text-amber-800">
+                    {applyResult.updateResults.failed} products failed to update
+                  </span>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Products with Variations */}
       {data.productsWithVariations.length > 0 && (
@@ -358,6 +637,33 @@ export default function VariationsPage() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {removing ? 'Removing...' : 'Remove Variations'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Apply Unified Addons Confirmation Dialog */}
+      <AlertDialog open={confirmApplyOpen} onOpenChange={setConfirmApplyOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apply Unified Addons?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will replace existing variations on all products in the target categories with standardized addon variations. 
+              This action cannot be undone. Are you sure you want to proceed?
+              <br /><br />
+              <strong>Products affected:</strong> {addonData?.totalProducts || 0}
+              <br />
+              <strong>Categories:</strong> {addonData?.targetCategories.map(c => c.name).join(', ')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={applyingAddons}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={applyUnifiedAddons}
+              disabled={applyingAddons}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              {applyingAddons ? 'Applying...' : 'Apply Unified Addons'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

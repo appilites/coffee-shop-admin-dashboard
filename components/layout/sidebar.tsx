@@ -15,6 +15,7 @@ import {
   Coffee,
   LogOut,
   Gift,
+  Layers,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -42,6 +43,16 @@ const menuItems = [
   {
     title: "Products",
     href: "/products",
+    icon: Package,
+  },
+  {
+    title: "Variations",
+    href: "/variations",
+    icon: Layers,
+  },
+  {
+    title: "Bulk Addons",
+    href: "/bulk-addons",
     icon: Package,
   },
   {
