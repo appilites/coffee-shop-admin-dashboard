@@ -62,8 +62,8 @@ export const newArrivalSchema = z.object({
   title: z.string().min(1, "Title is required").max(200, "Title is too long"),
   description: z.string().max(1000, "Description is too long").optional(),
   imageUrl: z.string().max(2000, "Image URL is too long").optional().or(z.literal("")),
-  buttonText: z.string().min(1, "Button text is required").max(50, "Button text is too long"),
-  redirectLink: z.string().max(500, "Redirect link is too long").optional(),
+  buttonText: z.string().optional().default("Try Now"),
+  redirectLink: z.string().min(1, "Button link is required").max(500, "Redirect link is too long"),
   isActive: z.boolean().default(true),
   displayOrder: z.coerce.number().int().min(0).default(0),
 })

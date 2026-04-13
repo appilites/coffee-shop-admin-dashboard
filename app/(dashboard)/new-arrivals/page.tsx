@@ -154,7 +154,7 @@ export default function NewArrivalsPage() {
 
       {/* New Arrivals Grid */}
       {filteredNewArrivals.length > 0 ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
           {filteredNewArrivals.map((item, index) => (
             <motion.div
               key={item.id}
@@ -162,9 +162,9 @@ export default function NewArrivalsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
             >
-              <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+              <Card className="overflow-hidden hover:shadow-lg transition-shadow h-full flex flex-col">
                 {item.image_url && (
-                  <div className="aspect-video relative">
+                  <div className="h-48 relative flex-shrink-0 bg-gray-100">
                     <img
                       src={item.image_url}
                       alt={item.title}
@@ -172,47 +172,57 @@ export default function NewArrivalsPage() {
                     />
                   </div>
                 )}
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg">{item.title}</h3>
+                {!item.image_url && (
+                  <div className="h-48 relative flex-shrink-0 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                    <div className="text-gray-400 text-center">
+                      <svg className="w-12 h-12 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                      </svg>
+                      <p className="text-sm">No Image</p>
+                    </div>
+                  </div>
+                )}
+                <CardHeader className="flex-shrink-0 pb-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-h-0">
+                      <h3 className="font-semibold text-lg leading-tight mb-1">{item.title}</h3>
                       {item.description && (
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
                           {item.description}
                         </p>
                       )}
                     </div>
-                    <Badge variant={item.is_active ? "default" : "secondary"}>
+                    <Badge variant={item.is_active ? "default" : "secondary"} className="flex-shrink-0">
                       {item.is_active ? 'Active' : 'Inactive'}
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardContent className="pt-0">
+                <CardContent className="pt-0 mt-auto pb-4">
                   <div className="flex items-center justify-between">
-                    <div className="text-sm text-muted-foreground">
-                      Order: {item.display_order}
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(item.created_at).toLocaleDateString()}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
                       <Link href={`/new-arrivals/${item.id}`}>
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4" />
+                        <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                          <Eye className="h-3 w-3" />
                         </Button>
                       </Link>
                       <Link href={`/new-arrivals/${item.id}/edit`}>
-                        <Button variant="outline" size="sm">
-                          <Edit className="h-4 w-4" />
+                        <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                          <Edit className="h-3 w-3" />
                         </Button>
                       </Link>
                       <Button 
                         variant="outline" 
                         size="sm"
-                        className="text-destructive hover:text-destructive"
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                         onClick={() => {
                           setItemToDelete(item.id)
                           setDeleteDialogOpen(true)
                         }}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
                   </div>

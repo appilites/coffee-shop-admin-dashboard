@@ -62,11 +62,6 @@ const menuItems = [
     icon: Sparkles,
   },
   {
-    title: "Setup New Arrivals",
-    href: "/setup-new-arrivals",
-    icon: Settings,
-  },
-  {
     title: "Orders",
     href: "/orders",
     icon: ShoppingCart,

@@ -30,21 +30,21 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseAdminClient()
     
     // Validate required fields
-    if (!body.title || !body.buttonText) {
+    if (!body.title || !body.redirectLink) {
       return NextResponse.json({
         success: false,
-        error: "Title and button text are required"
+        error: "Title and button link are required"
       }, { status: 400 })
     }
     
     const insertData = {
       title: body.title,
       description: body.description || null,
-      image_url: body.imageUrl || null,
-      button_text: body.buttonText,
-      redirect_link: body.redirectLink || null,
+      image_url: body.imageUrl || "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=300&fit=crop&crop=center",
+      button_text: body.buttonText || "Try Now",
+      redirect_link: body.redirectLink,
       is_active: body.isActive !== undefined ? body.isActive : true,
-      display_order: body.displayOrder || 0
+      display_order: body.displayOrder || Math.floor(Date.now() / 1000) // Use timestamp for auto-ordering
     }
     
     const { data: newArrival, error } = await supabase

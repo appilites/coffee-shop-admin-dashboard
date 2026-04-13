@@ -37,7 +37,7 @@ export default function EditNewArrivalPage({ params }: { params: Promise<{ id: s
       description: "",
       imageUrl: "",
       buttonText: "Try Now",
-      redirectLink: "",
+      redirectLink: "/menu",
       isActive: true,
       displayOrder: 0,
     },
@@ -69,10 +69,10 @@ export default function EditNewArrivalPage({ params }: { params: Promise<{ id: s
         title: data.title,
         description: data.description || "",
         imageUrl: data.image_url || "",
-        buttonText: data.button_text,
+        buttonText: "Try Now",
         redirectLink: data.redirect_link || "",
         isActive: data.is_active,
-        displayOrder: data.display_order,
+        displayOrder: 0,
       })
     } catch (error) {
       console.error('Error fetching new arrival:', error)
@@ -142,34 +142,18 @@ export default function EditNewArrivalPage({ params }: { params: Promise<{ id: s
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="title">
-                  Title <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="title"
-                  {...register("title")}
-                  placeholder="e.g., Protein Waffles"
-                />
-                {errors.title && (
-                  <p className="text-sm text-destructive">{errors.title.message}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="buttonText">
-                  Button Text <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="buttonText"
-                  {...register("buttonText")}
-                  placeholder="e.g., Try Now"
-                />
-                {errors.buttonText && (
-                  <p className="text-sm text-destructive">{errors.buttonText.message}</p>
-                )}
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="title">
+                Title <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="title"
+                {...register("title")}
+                placeholder="e.g., Protein Waffles"
+              />
+              {errors.title && (
+                <p className="text-sm text-destructive">{errors.title.message}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -198,46 +182,62 @@ export default function EditNewArrivalPage({ params }: { params: Promise<{ id: s
               )}
             </div>
 
+            {/* Redirect Link */}
             <div className="space-y-2">
-              <Label htmlFor="redirectLink">Redirect Link</Label>
-              <Input
-                id="redirectLink"
-                {...register("redirectLink")}
-                placeholder="/menu?category=cat-example or https://example.com"
-              />
+              <Label htmlFor="redirectLink">Button Link (Try Now)</Label>
+              <div className="space-y-2">
+                <select 
+                  className="w-full p-2 border rounded-md text-sm"
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setValue("redirectLink", e.target.value)
+                    }
+                  }}
+                  defaultValue=""
+                >
+                  <option value="">Select a quick link or enter custom below</option>
+                  <optgroup label="Menu Categories">
+                    <option value="/menu?category=beverages">Beverages</option>
+                    <option value="/menu?category=coffee">Coffee</option>
+                    <option value="/menu?category=tea">Tea</option>
+                    <option value="/menu?category=smoothies">Smoothies</option>
+                    <option value="/menu?category=waffles">Waffles</option>
+                    <option value="/menu?category=pastries">Pastries</option>
+                    <option value="/menu?category=specialty-drinks">Specialty Drinks</option>
+                    <option value="/menu?category=beauty-drinks">Beauty Drinks</option>
+                    <option value="/menu?category=meal-replacement-shakes">Meal Replacement Shakes</option>
+                    <option value="/menu?category=kid-drinks">Kid Drinks</option>
+                  </optgroup>
+                  <optgroup label="General Pages">
+                    <option value="/menu">Full Menu</option>
+                    <option value="/products">All Products</option>
+                    <option value="/categories">Categories</option>
+                  </optgroup>
+                </select>
+                <Input
+                  id="redirectLink"
+                  {...register("redirectLink")}
+                  placeholder="/menu?category=waffles or /products/123 or https://example.com"
+                />
+              </div>
               <p className="text-xs text-muted-foreground">
-                Where users will go when they click the button
+                Where users will go when they click "Try Now" button. Examples:
+                <br />• /menu?category=beverages (category page)
+                <br />• /products/product-id (specific product)
+                <br />• https://external-link.com (external site)
               </p>
               {errors.redirectLink && (
                 <p className="text-sm text-destructive">{errors.redirectLink.message}</p>
               )}
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="displayOrder">Display Order</Label>
-                <Input
-                  id="displayOrder"
-                  type="number"
-                  {...register("displayOrder", { valueAsNumber: true })}
-                  placeholder="0"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Lower numbers appear first
-                </p>
-                {errors.displayOrder && (
-                  <p className="text-sm text-destructive">{errors.displayOrder.message}</p>
-                )}
-              </div>
-
-              <div className="flex items-center space-x-2 pt-6">
-                <Switch
-                  id="isActive"
-                  checked={isActive}
-                  onCheckedChange={(checked) => setValue("isActive", checked)}
-                />
-                <Label htmlFor="isActive">Active</Label>
-              </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="isActive"
+                checked={isActive}
+                onCheckedChange={(checked) => setValue("isActive", checked)}
+              />
+              <Label htmlFor="isActive">Active</Label>
             </div>
 
             <div className="flex gap-4">

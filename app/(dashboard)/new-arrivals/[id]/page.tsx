@@ -128,16 +128,20 @@ export default function ViewNewArrivalPage({ params }: { params: Promise<{ id: s
               </div>
             )}
 
-            <div>
-              <h4 className="font-medium text-sm text-muted-foreground mb-1">Button Text</h4>
-              <p className="text-sm">{newArrival.button_text}</p>
-            </div>
+            {newArrival.image_url && (
+              <div>
+                <h4 className="font-medium text-sm text-muted-foreground mb-1">Image URL</h4>
+                <p className="text-xs font-mono bg-muted px-2 py-1 rounded break-all">
+                  {newArrival.image_url}
+                </p>
+              </div>
+            )}
 
             {newArrival.redirect_link && (
               <div>
-                <h4 className="font-medium text-sm text-muted-foreground mb-1">Redirect Link</h4>
+                <h4 className="font-medium text-sm text-muted-foreground mb-1">Button Link</h4>
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-mono bg-muted px-2 py-1 rounded flex-1">
+                  <p className="text-xs font-mono bg-muted px-2 py-1 rounded flex-1 break-all">
                     {newArrival.redirect_link}
                   </p>
                   {newArrival.redirect_link.startsWith('http') ? (
@@ -147,13 +151,13 @@ export default function ViewNewArrivalPage({ params }: { params: Promise<{ id: s
                       rel="noopener noreferrer"
                     >
                       <Button variant="outline" size="sm">
-                        <ExternalLink className="h-4 w-4" />
+                        <ExternalLink className="h-3 w-3" />
                       </Button>
                     </a>
                   ) : (
                     <Link href={newArrival.redirect_link}>
                       <Button variant="outline" size="sm">
-                        <ExternalLink className="h-4 w-4" />
+                        <ExternalLink className="h-3 w-3" />
                       </Button>
                     </Link>
                   )}
@@ -161,17 +165,11 @@ export default function ViewNewArrivalPage({ params }: { params: Promise<{ id: s
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h4 className="font-medium text-sm text-muted-foreground mb-1">Display Order</h4>
-                <p className="text-sm">{newArrival.display_order}</p>
-              </div>
-              <div>
-                <h4 className="font-medium text-sm text-muted-foreground mb-1">Status</h4>
-                <Badge variant={newArrival.is_active ? "default" : "secondary"}>
-                  {newArrival.is_active ? 'Active' : 'Inactive'}
-                </Badge>
-              </div>
+            <div>
+              <h4 className="font-medium text-sm text-muted-foreground mb-1">Status</h4>
+              <Badge variant={newArrival.is_active ? "default" : "secondary"}>
+                {newArrival.is_active ? 'Active' : 'Inactive'}
+              </Badge>
             </div>
 
             <div className="grid grid-cols-2 gap-4 text-xs text-muted-foreground">
@@ -210,7 +208,7 @@ export default function ViewNewArrivalPage({ params }: { params: Promise<{ id: s
                 <p className="text-muted-foreground mb-4 text-sm">{newArrival.description}</p>
               )}
               <Button className="w-full">
-                {newArrival.button_text}
+                Try Now
               </Button>
             </div>
           </div>

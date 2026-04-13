@@ -52,10 +52,8 @@ export async function PUT(
     if (body.title !== undefined) updateData.title = body.title
     if (body.description !== undefined) updateData.description = body.description || null
     if (body.imageUrl !== undefined) updateData.image_url = body.imageUrl || null
-    if (body.buttonText !== undefined) updateData.button_text = body.buttonText
     if (body.redirectLink !== undefined) updateData.redirect_link = body.redirectLink || null
     if (body.isActive !== undefined) updateData.is_active = body.isActive
-    if (body.displayOrder !== undefined) updateData.display_order = body.displayOrder
     
     const { data: updatedNewArrival, error } = await supabase
       .from('new_arrivals')

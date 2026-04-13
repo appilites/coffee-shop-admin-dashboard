@@ -46,6 +46,20 @@ export default function SetupNewArrivalsPage() {
         if (!response.ok) throw new Error(result.error || 'Failed to setup storage')
         return result.message || 'Storage bucket created successfully'
       }
+    },
+    {
+      id: 'migrate',
+      title: 'Migrate Existing Images',
+      description: 'Save your current shop images to database for dashboard management',
+      status: 'pending',
+      action: async () => {
+        const response = await fetch('/api/setup/migrate-existing-images', {
+          method: 'POST'
+        })
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.error || 'Failed to migrate images')
+        return `${result.message} - ${result.details.inserted} new, ${result.details.updated} updated, ${result.details.total} total`
+      }
     }
   ])
 
