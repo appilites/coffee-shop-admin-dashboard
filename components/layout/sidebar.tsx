@@ -16,6 +16,7 @@ import {
   LogOut,
   Gift,
   Layers,
+  Sparkles,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -54,6 +55,16 @@ const menuItems = [
     title: "Bulk Addons",
     href: "/bulk-addons",
     icon: Package,
+  },
+  {
+    title: "New Arrivals",
+    href: "/new-arrivals",
+    icon: Sparkles,
+  },
+  {
+    title: "Setup New Arrivals",
+    href: "/setup-new-arrivals",
+    icon: Settings,
   },
   {
     title: "Orders",

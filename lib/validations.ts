@@ -56,3 +56,30 @@ export const loginSchema = z.object({
 })
 
 export type LoginFormValues = z.infer<typeof loginSchema>
+
+// New Arrival validation schema
+export const newArrivalSchema = z.object({
+  title: z.string().min(1, "Title is required").max(200, "Title is too long"),
+  description: z.string().max(1000, "Description is too long").optional(),
+  imageUrl: z.string().max(2000, "Image URL is too long").optional().or(z.literal("")),
+  buttonText: z.string().min(1, "Button text is required").max(50, "Button text is too long"),
+  redirectLink: z.string().max(500, "Redirect link is too long").optional(),
+  isActive: z.boolean().default(true),
+  displayOrder: z.coerce.number().int().min(0).default(0),
+})
+
+export type NewArrivalFormValues = z.infer<typeof newArrivalSchema>
+
+// New Arrival interface
+export interface NewArrival {
+  id: string
+  title: string
+  description: string | null
+  image_url: string | null
+  button_text: string
+  redirect_link: string | null
+  is_active: boolean
+  display_order: number
+  created_at: string
+  updated_at: string
+}

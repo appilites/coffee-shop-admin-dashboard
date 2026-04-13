@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSupabaseAdminClient } from "@/lib/supabase-server"
 
-const BUCKET_NAME = "product-images"
+const BUCKET_NAME = "new-arrivals-images"
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
 export async function POST(request: NextRequest) {
@@ -54,12 +54,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate unique filename (optional subfolder: formData "folder" e.g. "promotions")
+    // Generate unique filename
     const ext = file.name.split(".").pop()?.toLowerCase() || "jpg"
-    const uniqueName = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`
-    const rawFolder = (formData.get("folder") as string) || "products"
-    const safeFolder = rawFolder.replace(/[^a-z0-9-_]/gi, "").slice(0, 48) || "products"
-    const filePath = `${safeFolder}/${uniqueName}`
+    const timestamp = Date.now()
+    const randomString = Math.random().toString(36).substring(2, 15)
+    const fileName = `new-arrival-${timestamp}-${randomString}.${ext}`
 
     // Convert File to ArrayBuffer then to Buffer
     const arrayBuffer = await file.arrayBuffer()
@@ -68,8 +67,9 @@ export async function POST(request: NextRequest) {
     // Upload to Supabase Storage
     const { data, error } = await supabase.storage
       .from(BUCKET_NAME)
-      .upload(filePath, buffer, {
+      .upload(fileName, buffer, {
         contentType: file.type,
+        cacheControl: '3600',
         upsert: false,
       })
 
@@ -81,16 +81,53 @@ export async function POST(request: NextRequest) {
     // Get public URL
     const { data: publicUrlData } = supabase.storage
       .from(BUCKET_NAME)
-      .getPublicUrl(filePath)
+      .getPublicUrl(fileName)
 
     return NextResponse.json({
+      success: true,
       url: publicUrlData.publicUrl,
-      path: filePath,
-      name: uniqueName,
+      fileName: fileName,
+      path: fileName,
+      name: fileName,
     })
   } catch (error) {
     console.error("Upload error:", error)
     const msg = error instanceof Error ? error.message : "Upload failed"
     return NextResponse.json({ error: msg }, { status: 500 })
+  }
+}
+
+// DELETE method for removing images
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const fileName = searchParams.get('fileName')
+
+    if (!fileName) {
+      return NextResponse.json({ 
+        error: 'No filename provided' 
+      }, { status: 400 })
+    }
+
+    const supabase = getSupabaseAdminClient()
+
+    const { error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .remove([fileName])
+
+    if (error) {
+      console.error('Delete error:', error)
+      return NextResponse.json({ 
+        error: 'Failed to delete image' 
+      }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+
+  } catch (error) {
+    console.error('Delete error:', error)
+    return NextResponse.json({ 
+      error: 'Internal server error' 
+    }, { status: 500 })
   }
 }

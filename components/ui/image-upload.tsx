@@ -1,161 +1,194 @@
 "use client"
 
 import { useState, useRef } from "react"
-import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { Upload, X, Image as ImageIcon } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Upload, X, Loader2, Image as ImageIcon } from "lucide-react"
 import { toast } from "sonner"
 
 interface ImageUploadProps {
-  value?: string | null
-  onChange?: (url: string | null) => void
-  className?: string
-  disabled?: boolean
+  value?: string
+  onChange: (value: string) => void
+  onFileNameChange?: (fileName: string) => void
 }
 
-export function ImageUpload({ value, onChange, className, disabled }: ImageUploadProps) {
+export function ImageUpload({ value, onChange, onFileNameChange }: ImageUploadProps) {
+  const [uploading, setUploading] = useState(false)
   const [preview, setPreview] = useState<string | null>(value || null)
-  const [isDragging, setIsDragging] = useState(false)
+  const [fileName, setFileName] = useState<string>("")
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleFileSelect = (file: File) => {
-    // UI only - validate file
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file")
-      return
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image size must be less than 5MB")
-      return
-    }
-
-    // Create preview URL
-    const objectUrl = URL.createObjectURL(file)
-    setPreview(objectUrl)
-    onChange?.(objectUrl)
-    toast.success("Image selected (UI only - no upload)")
-  }
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    setIsDragging(false)
-
-    if (disabled) return
-
-    const file = e.dataTransfer.files[0]
-    if (file) {
-      handleFileSelect(file)
-    }
-  }
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    if (!disabled) {
-      setIsDragging(true)
-    }
-  }
-
-  const handleDragLeave = () => {
-    setIsDragging(false)
-  }
-
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      handleFileSelect(file)
+    if (!file) return
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Invalid file type. Only JPEG, PNG, WebP, and GIF are allowed.')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024 // 5MB
+    if (file.size > maxSize) {
+      toast.error('File too large. Maximum size is 5MB.')
+      return
+    }
+
+    setUploading(true)
+    try {
+      // Create preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setPreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+
+      // Upload to server
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Upload failed')
+      }
+
+      // Update form with the uploaded image URL
+      onChange(result.url)
+      setFileName(result.fileName)
+      onFileNameChange?.(result.fileName)
+      toast.success('Image uploaded successfully!')
+    } catch (error) {
+      console.error('Upload error:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to upload image')
+      setPreview(null)
+    } finally {
+      setUploading(false)
     }
   }
 
-  const handleRemove = () => {
-    if (preview) {
-      URL.revokeObjectURL(preview)
+  const handleRemove = async () => {
+    if (fileName) {
+      try {
+        // Delete from storage
+        await fetch(`/api/upload?fileName=${fileName}`, {
+          method: 'DELETE'
+        })
+      } catch (error) {
+        console.error('Delete error:', error)
+      }
     }
+
     setPreview(null)
-    onChange?.(null)
+    setFileName("")
+    onChange("")
+    onFileNameChange?.("")
+
+    // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
   }
 
-  return (
-    <div className={cn("space-y-2", className)}>
-      <div
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        className={cn(
-          "relative border-2 border-dashed rounded-xl p-6 transition-all duration-200",
-          isDragging
-            ? "border-accent bg-accent/5"
-            : "border-border/60 bg-muted/30",
-          disabled && "opacity-50 cursor-not-allowed",
-          !disabled && "cursor-pointer hover:border-accent/50 hover:bg-muted/50"
-        )}
-        onClick={() => !disabled && fileInputRef.current?.click()}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileInputChange}
-          className="hidden"
-          disabled={disabled}
-        />
+  const handleUrlChange = (url: string) => {
+    setPreview(url)
+    onChange(url)
+    setFileName("") // Clear filename for manual URLs
+  }
 
+  return (
+    <div className="space-y-4">
+      {/* File Upload Section */}
+      <div>
+        <Label>Upload Image</Label>
         {preview ? (
-          <div className="relative group">
+          <div className="relative mt-2">
             <img
               src={preview}
               alt="Preview"
-              className="w-full h-48 object-cover rounded-lg"
+              className="w-full h-48 object-cover rounded-lg border"
             />
-            {!disabled && (
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleRemove()
-                }}
-                className="absolute top-2 right-2 p-2 bg-destructive text-destructive-foreground rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <X className="h-4 w-4" />
-              </motion.button>
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center space-y-3">
-            <div className="rounded-full bg-muted p-4">
-              <ImageIcon className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <div className="text-center">
-              <p className="text-sm font-medium text-foreground">
-                {isDragging ? "Drop image here" : "Click to upload or drag and drop"}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                PNG, JPG, WEBP up to 5MB
-              </p>
-            </div>
             <Button
               type="button"
-              variant="outline"
-              size="sm"
-              className="border-border/60"
-              disabled={disabled}
+              variant="destructive"
+              size="icon"
+              className="absolute top-2 right-2"
+              onClick={handleRemove}
+              disabled={uploading}
             >
-              <Upload className="h-4 w-4 mr-2" />
-              Select Image
+              <X className="h-4 w-4" />
             </Button>
           </div>
+        ) : (
+          <div className="mt-2 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+            <div className="flex flex-col items-center">
+              <ImageIcon className="h-12 w-12 text-gray-400 mb-4" />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="mb-2"
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Choose Image
+                  </>
+                )}
+              </Button>
+              <p className="text-sm text-gray-500">PNG, JPG, WebP up to 5MB</p>
+            </div>
+          </div>
         )}
+        <Input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileSelect}
+          className="hidden"
+          disabled={uploading}
+        />
       </div>
-      {preview && (
-        <p className="text-xs text-muted-foreground text-center">
-          Image preview (UI only - no actual upload)
+
+      {/* OR Divider */}
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background px-2 text-muted-foreground">Or</span>
+        </div>
+      </div>
+
+      {/* Manual URL Input */}
+      <div>
+        <Label htmlFor="imageUrl">Image URL</Label>
+        <Input
+          id="imageUrl"
+          type="url"
+          value={value || ""}
+          onChange={(e) => handleUrlChange(e.target.value)}
+          placeholder="/newarrival.jfif or https://example.com/image.jpg"
+          className="mt-1"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Use existing images like /newarrival.jfif or upload new ones
         </p>
-      )}
+      </div>
     </div>
   )
 }
